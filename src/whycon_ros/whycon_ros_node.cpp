@@ -8,6 +8,11 @@
 #include "whycon/MarkerArray.h"
 #include "whycon/Marker.h"
 
+// new additions
+/////////////////////////////////////////////////////////////
+#include <tf2/LinearMath/Transform.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+/////////////////////////////////////////////////////////////
 
 namespace whycon_ros
 {
@@ -138,6 +143,27 @@ void CWhyconROSNode::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr 
     whycon_.updateCameraInfo(intrinsic_mat_, distortion_coeffs_);
 }
 
+geometry_msgs::Point get_camera_translation( const geometry_msgs::Pose & marker_pose )
+{
+	// the pose of the camera within the marker's coordinate frame
+	geometry_msgs::Pose camera_pose;
+
+	// get the marker's orientation and invert it
+	tf2::Quaternion marker_orientation, marker_orientation_inverse;
+	tf2::fromMsg(marker_pose.orientation, marker_orientation);
+	marker_orientation_inverse = marker_orientation.inverse();
+
+	// create a rotational transform with the inverse of the marker's orientation (no translational element)
+	geometry_msgs::TransformStamped rotation_transform;
+	rotation_transform.transform.rotation = tf2::toMsg(marker_orientation_inverse);
+
+	// carry out the rotation
+	tf2::doTransform(marker_pose, camera_pose, rotation_transform);
+
+	// return only the translational elements of the camera's pose, as the orientation will be (w, x, y, z) ≈ (1, 0, 0, 0)
+	return camera_pose.position;
+}
+
 void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
 {
     // convert sensor_msgs::Image msg to whycon CRawImage
@@ -177,7 +203,11 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
         marker.rotation.x = detection.obj.roll;
         marker.rotation.y = detection.obj.pitch;
         marker.rotation.z = detection.obj.yaw;
-        marker_array.markers.push_back(marker);
+
+	// Calculate camera position in marker coordinate frame
+	marker.camera_translation = get_camera_translation(marker.position);
+
+	marker_array.markers.push_back(marker);
 
         if(identify_ && publish_tf_)
         {
