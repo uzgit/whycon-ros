@@ -1,6 +1,9 @@
 <?xml version="1.0"?>
 <launch>
 
+  <node pkg="usb_cam" type="usb_cam_node" name="usb_cam" output="log"/>
+  <include file="$(find whycon_data_collection)/launch/whycon_data_collection.launch" />
+
   <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="reconfigurator"/>
   
   <arg name="cam_info"  default="/usb_cam/camera_info"  doc="camera_info topic"/>
@@ -15,7 +18,7 @@
   <arg name="pub_visual"    default="true"  doc="Whether to publish visualization markers"/>
   <arg name="use_gui"       default="true"  doc="Whether to use GUI"/>
 
-  <node pkg="whycon" type="whycon" name="whycon" output="screen" launch-prefix="">
+  <node pkg="whycon" type="whycon" name="whycon" output="screen" launch-prefix="" respawn="true">
     <remap from="/camera/camera_info" to="$(arg cam_info)"/>
     <remap from="/camera/image_raw"   to="$(arg cam_raw)"/>
     
@@ -27,6 +30,10 @@
     <param name="pub_tf"        value="$(arg pub_tf)"/>
     <param name="pub_visual"    value="$(arg pub_visual)"/>
     <param name="use_gui"       value="$(arg use_gui)"/>
+  </node>
+
+  <node name="image_view" pkg="image_view" type="image_view">
+    <remap from="image" to="/whycon/processed_image" />
   </node>
 
 </launch>
