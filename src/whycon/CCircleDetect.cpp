@@ -708,7 +708,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
             }
         }
         variance[i] = sum[i] / numPoints[i];
-        printf("idx %d var %f sum %f numPoints %f\n", i, variance[i], sum[i], numPoints[i]);
+//	printf("idx %d var %f sum %f numPoints %f\n", i, variance[i], sum[i], numPoints[i]);
 
         //determine raw code
         for (int a = 0; a < idBits * 2; a++)
@@ -721,7 +721,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
         segIdx = 0;
     else
         segIdx = 1;
-    printf("solution %d\n\n", segIdx);
+//    printf("solution %d\n\n", segIdx);
 
     tracked_object.u = ellipse_centers.u[segIdx];
     tracked_object.v = ellipse_centers.v[segIdx];
