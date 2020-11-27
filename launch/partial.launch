@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <launch>
 
-  <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="reconfigurator"/>
+  <!--node pkg="rqt_reconfigure" type="rqt_reconfigure" name="reconfigurator"/-->
   
   <arg name="cam_info"  default="/usb_cam/camera_info"  doc="camera_info topic"/>
   <arg name="cam_raw"   default="/usb_cam/image_raw"    doc="image_raw topic"/>
 
   <arg name="circle_diam"   default="0.1" doc="Outer circle diameter in meters"/>
   <arg name="id_bits"       default="8"     doc="Number of encoded bits"/>
-  <arg name="id_samples"    default="3000"   doc="Number of samples to detect ID"/>
+  <arg name="id_samples"    default="700"   doc="Number of samples to detect ID"/>
   <arg name="hamming_dist"  default="1"     doc="Hamming distance used for ID"/>
   <arg name="num_markers"   default="3"     doc="Initial number of markers to detect"/>
   <arg name="pub_tf"        default="true"  doc="Whether to publish transformations from camera to marker frame"/>

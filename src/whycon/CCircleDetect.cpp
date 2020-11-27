@@ -621,7 +621,21 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     float numPoints[2];
 
     char code[2][idBits * 4];
+
+// edits for orientation resolution
+    // scaling factor for the ID sampling ellipse is 2.0
+    float inner_ellipse_scaling_factor  = 1.5; // this allows us to predict where the inner white ellipse should be
+    float middle_ellipse_scaling_factor = 2.5; // this allows us to predict where ellipse bounding the teeth should be
+    float ellipse_sampling_extent = 0.5; // we sample in [<>_scaling_factor - ellipse_sampling_extent, <>_scaling_factor + ellipse_sampling_extent]. Basically this just changes the length of the sampling line.
+    int num_ellipse_sample_points = 80;  // number of samples in each line
+    float increment = (2 * ellipse_sampling_extent) / num_ellipse_sample_points;
     
+//			[2] candidate solutions, [idBits * 2] number of teeth, [num_ellipse_sample_points] number of sample points, [2] for x,y
+    float ellipse_sample_points[2][idBits * 2][num_ellipse_sample_points][2]; // the locations of the ellipse samples
+//    float ellipse_edge_signal[2][idBits * 2][num_ellipse_sample_points]; // signal along each sampling line (we shouldn't need this because we can use the average from the ID sampling)
+    float ellipse_edge_smooth[2][idBits * 2][num_ellipse_sample_points]; // smoothed version of actual signal
+
+
     for(int i = 0; i < 2; i++)
     {
         //calculate appropriate positions
@@ -715,6 +729,73 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
             code[i][a] = smooth[i][(maxIdx[i] + a * segmentWidth) % idSamples] + '0';
 
         code[i][idBits*2] = 0;
+
+
+	// ************************************************************************************
+	// Do the ellipse sampling
+	int position_index;   // index marking the center of each tooth in the smoothed ID signal (NOT ellipse signal), used to determine where we sample for the ellipses
+	float scaling_factor; // will be equal to either inner_ellipse_scaling_factor or middle_ellipse_scaling factor depending on which ellipse we are sampling
+	float alpha; // how much we adjust the base scaling factor in order to create a line
+	float sample_x, sample_y; // x and y locations of the current sample
+	float brightness; // the brightness at (sample_x, sample_y)
+	for(int a = 0; a < idBits * 2; a ++) // we want to sample at each tooth
+	{
+		// this should give us the center of each tooth
+		position_index = (maxIdx[i] + a * segmentWidth) % idSamples;
+		
+		// if this location marks a black region then we sample for the inner ellipse
+		if( smooth[i][position_index] == 0 )
+		{
+			scaling_factor = inner_ellipse_scaling_factor;
+		}
+		// if this location marks a white region then we sample for the middle ellipse
+		else //if( smooth[i][position_index] == 1 )
+		{
+			scaling_factor = middle_ellipse_scaling_factor;
+		}
+
+		// sample along a line
+		for(int index = 0; index < num_ellipse_sample_points; index ++)
+		{
+			// this creates the line
+			alpha = -ellipse_sampling_extent + (index * increment);
+
+			// get sample location
+			sample_x = tmp[i].x + (tmp[i].m0 * cos( (float)position_index / idSamples * 2 * M_PI ) * tmp[i].v0 + tmp[i].m1 * sin( (float)position_index / idSamples * 2 * M_PI ) * tmp[i].v1 ) * (scaling_factor + alpha);
+			sample_y = tmp[i].y + (tmp[i].m0 * cos( (float)position_index / idSamples * 2 * M_PI ) * tmp[i].v1 - tmp[i].m1 * sin( (float)position_index / idSamples * 2 * M_PI ) * tmp[i].v0 ) * (scaling_factor + alpha);
+			ellipse_sample_points[i][a][index][0] = sample_x;
+			ellipse_sample_points[i][a][index][1] = sample_y;
+
+			// get the brightness at the sample location (same method as before)
+			pos = ((int)sample_x + ((int)sample_y) * image->width_);
+			if (pos > 0 && pos < image->width_ * image->height_)
+			{
+				float gx, gy;
+				int px, py;
+				unsigned char const* ptr = image->data_;
+				px = sample_x;
+				py = sample_y;
+				gx = sample_x-px;
+				gy = sample_y-py;
+				pos = (px+py*image->width_);
+
+				brightness  = ptr[(pos+0)*step+0]*(1-gx)*(1-gy)+ptr[(pos+1)*step+0]*gx*(1-gy)+ptr[(pos+image->width_)*step+0]*(1-gx)*gy+ptr[step*(pos+image->width_+1)+0]*gx*gy;
+				brightness += ptr[(pos+0)*step+1]*(1-gx)*(1-gy)+ptr[(pos+1)*step+1]*gx*(1-gy)+ptr[(pos+image->width_)*step+1]*(1-gx)*gy+ptr[step*(pos+image->width_+1)+1]*gx*gy;
+				brightness += ptr[(pos+0)*step+2]*(1-gx)*(1-gy)+ptr[(pos+1)*step+2]*gx*(1-gy)+ptr[(pos+image->width_)*step+2]*(1-gx)*gy+ptr[step*(pos+image->width_+1)+2]*gx*gy;
+
+				// we just need to store the binarized signal
+				if( brightness > avg )
+				{
+					ellipse_edge_smooth[i][a][index] = 1;
+				}
+				else
+				{
+					ellipse_edge_smooth[i][a][index] = 0;
+				}
+			}
+		}
+	}
+
     }
 
     if(variance[0] < variance[1])
@@ -752,6 +833,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
         printf("\n");
     }
 
+    // draw the circle for ID sampling
     for (int a = 0; a < idSamples; a++)
     {
         pos = ((int)x[segIdx][a] + ((int)y[segIdx][a]) * image->width_);
@@ -762,6 +844,45 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
             image->data_[step * pos + 2] = 0;
         }
     }
+
+#if 1
+    // draw the ellipse samples
+    unsigned char intensity_r;
+    unsigned char intensity_g;
+    unsigned char intensity_b;
+    float sample_x, sample_y;
+    for(int i = 0; i < 2; i ++)
+    {
+	for(int a = 0; a < idBits * 2; a ++)
+	{
+	    for(int index = 0; index < num_ellipse_sample_points; index ++)
+	    {
+		sample_x = ellipse_sample_points[i][a][index][0];
+		sample_y = ellipse_sample_points[i][a][index][1];
+		if( ellipse_edge_smooth[i][a][index] == 0)
+		{
+			intensity_r = 255;
+			intensity_g = 0;
+			intensity_b = 0;
+		}
+		else
+		{
+			intensity_r = 0;
+			intensity_g = 0;
+			intensity_b = 255;
+		}
+
+		pos = ((int)sample_x + ((int)sample_y) * image->width_);
+		if (pos > 0 && pos < image->width_ * image->height_)
+		{
+			image->data_[step * pos + 0] = intensity_r;
+			image->data_[step * pos + 1] = intensity_g;
+			image->data_[step * pos + 2] = intensity_b;
+		}
+	    }
+	}
+    }
+#endif
 }
 
 void CCircleDetect::ambiguityPlain()
