@@ -636,7 +636,23 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 //    float ellipse_edge_signal[2][idBits * 2][num_ellipse_sample_points]; // signal along each sampling line (we shouldn't need this because we can use the average from the ID sampling)
     float ellipse_edge_smooth[2][idBits * 2][num_ellipse_sample_points]; // smoothed version of actual signal
 //    float ellipse_edges[2][idBits*2]; // the amount [0, 1] of the line that is in the first sampling area (before the edge where the sampling area changes color)
-    bool ellipse_edges[2][idBits*2][num_ellipse_sample_points]; // marks the transitions from black to white in the smoothed ellipse edge signal (1=edge, 0=not edge)
+//    bool ellipse_edges[2][idBits*2][num_ellipse_sample_points]; // marks the transitions from black to white in the smoothed ellipse edge signal (1=edge, 0=not edge)
+    
+    // [2] candidate solutions, [idBits*2] number of teeth
+    int ellipse_edges[2][idBits*2];
+    int num_ellipse_edges[2];
+    float ellipse_edge_mean[2];
+    float ellipse_edge_variance[2];
+
+/*
+    // [2] candidate solutions, [idBits] number of points, [2] -> x,y
+    float inner_ellipse_boundary_points[2][idBits][2];
+    float middle_ellipse_boundary_points[2][idBits][2];
+    int num_inner_ellipse_edges[2];
+    int num_middle_ellipse_edges[2];
+    float  inner_ellipse_edge_variance[2];
+    float middle_ellipse_edge_variance[2];
+*/
 
     for(int i = 0; i < 2; i++)
     {
@@ -740,6 +756,9 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 	float alpha; // how much we adjust the base scaling factor in order to create a line
 	float sample_x, sample_y; // x and y locations of the current sample
 	float brightness; // the brightness at (sample_x, sample_y)
+	
+	num_ellipse_edges[i] = 0;
+
 	for(int a = 0; a < idBits * 2; a ++) // we want to sample at each tooth
 	{
 		// this should give us the center of each tooth
@@ -785,7 +804,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 				brightness += ptr[(pos+0)*step+1]*(1-gx)*(1-gy)+ptr[(pos+1)*step+1]*gx*(1-gy)+ptr[(pos+image->width_)*step+1]*(1-gx)*gy+ptr[step*(pos+image->width_+1)+1]*gx*gy;
 				brightness += ptr[(pos+0)*step+2]*(1-gx)*(1-gy)+ptr[(pos+1)*step+2]*gx*(1-gy)+ptr[(pos+image->width_)*step+2]*(1-gx)*gy+ptr[step*(pos+image->width_+1)+2]*gx*gy;
 
-				// we just need to store the binarized signal (and only for visualization)
+				// we just need to store the binarized signal
 				if( brightness > avg )
 				{
 					ellipse_edge_smooth[i][a][index] = 1;
@@ -798,30 +817,56 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 		}
 
 		// find the edges
-		bool edge_not_found = true;
-		for(int index = 0; index < num_ellipse_sample_points; index ++)
+		int index = 0;
+		while( (index < num_ellipse_sample_points) && (ellipse_edge_smooth[i][a][index] == 1) )
 		{
-			if( edge_not_found && (ellipse_edge_smooth[i][a][index] == 0) )
-			{
-//				ellipse_edges[i][a] = (float)index / num_ellipse_sample_points;
-				ellipse_edges[i][a][index] = true;
-
-				edge_not_found = false;
-			}
-			else
-			{
-				ellipse_edges[i][a][index] = false;
-			}
+			index ++;
+		}
+		if( index < num_ellipse_sample_points )
+		{
+			num_ellipse_edges[i] ++;
+			ellipse_edges[i][a] = index;
 		}
 	}
 
+	// calculate ellipse edge mean
+	ellipse_edge_mean[i] = 0;
+	for(int a = 0; a < num_ellipse_edges[i]; a ++)
+	{
+		ellipse_edge_mean[i] += ellipse_edges[i][a];
+	}
+	ellipse_edge_mean[i] /= num_ellipse_edges[i];
+
+	// calculate ellipse edge variance
+	ellipse_edge_variance[i] = 0;
+	for(int a = 0; a < num_ellipse_edges[i]; a ++)
+	{
+		float diff = ellipse_edges[i][a] - ellipse_edge_mean[i];
+		ellipse_edge_variance[i] += diff * diff;
+	}
+	if( num_ellipse_edges[i] > 1 )
+	{
+		ellipse_edge_variance[i] /= (num_ellipse_edges[i] - 1);
+	}
+	
     }
 
+    if(ellipse_edge_variance[0] < ellipse_edge_variance[1])
+    {
+	    segIdx = 0;
+    }
+    else
+    {
+	    segIdx = 1;
+    }
+
+/*    
     if(variance[0] < variance[1])
         segIdx = 0;
     else
         segIdx = 1;
 //    printf("solution %d\n\n", segIdx);
+*/
 
     tracked_object.u = ellipse_centers.u[segIdx];
     tracked_object.v = ellipse_centers.v[segIdx];
@@ -860,9 +905,9 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 		    printf("solution %d: ", i);
 		    for(int a = 0; a < 2 * idBits; a ++)
 		    {
-			    printf("%0.3f ", ellipse_edges[i][a]);
+			    printf("%3d ", ellipse_edges[i][a]);
 		    }
-		    printf("\n");
+		    printf("mean: %0.3f, var: %0.3f\n", ellipse_edge_mean[i], ellipse_edge_variance[i]);
 	    }
     }
 
@@ -897,8 +942,8 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     unsigned char intensity_g;
     unsigned char intensity_b;
     float sample_x, sample_y;
-    for(int i = 0; i < 2; i ++)
-//    for(int i = segIdx; i == segIdx; i ++)
+//    for(int i = 0; i < 2; i ++) // draw all ellipse samples
+    for(int i = segIdx; i == segIdx; i ++) // draw ellipse samples for the used solution only
     {
 	for(int a = 0; a < idBits * 2; a ++)
 	{
@@ -930,14 +975,6 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 			printf("Serious error in drawing ellipse samples!!!!!!!!!!");
 		}
 
-		if( ellipse_edges[i][a][index] )
-		{
-			// draw ellipse edges as white
-			intensity_r = 255;
-			intensity_g = 255;
-			intensity_b = 255;
-		}
-
 		// write the colors to the image
 		sample_x = ellipse_sample_points[i][a][index][0];
 		sample_y = ellipse_sample_points[i][a][index][1];
@@ -956,35 +993,29 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 #if 1
     // draw the edge points (draw them last because they are high priority)
     float sample_x_, sample_y_;
-    for(int i = 0; i < 2; i ++)
-//    for(int i = segIdx; i == segIdx; i ++)
+//    for(int i = 0; i < 2; i ++) // draw all edge points
+    for(int i = segIdx; i == segIdx; i ++) // draw edge points for the used solution only
     {
 	if( debug )
 	{
 		printf("solution %d edge points: ", i);
 	}
-	for(int a = 0; a < idBits * 2; a ++)
+	for(int a = 0; a < num_ellipse_edges[i]; a ++)
 	{
-	    for(int index = 0; index < num_ellipse_sample_points; index ++)
-	    {
-		if( ellipse_edges[i][a][index] )
+		sample_x_ = ellipse_sample_points[i][a][ ellipse_edges[i][a] ][0];
+		sample_y_ = ellipse_sample_points[i][a][ ellipse_edges[i][a] ][1];
+
+		pos = ((int)sample_x_ + ((int)sample_y_) * image->width_);
+		if (pos > 0 && pos < image->width_ * image->height_)
 		{
-			// write the colors to the image
-			sample_x_ = ellipse_sample_points[i][a][index][0];
-			sample_y_ = ellipse_sample_points[i][a][index][1];
-			pos = ((int)sample_x_ + ((int)sample_y_) * image->width_);
-			if (pos > 0 && pos < image->width_ * image->height_)
-			{
-				image->data_[step * pos + 0] = 255;
-				image->data_[step * pos + 1] = 255;
-				image->data_[step * pos + 2] = 255;
-			}
-			if( debug )
-			{
-				printf("(%0.3f, %0.3f) ", sample_x_, sample_y_);
-			}
+			image->data_[step * pos + 0] = 255;
+			image->data_[step * pos + 1] = 255;
+			image->data_[step * pos + 2] = 255;
 		}
-	    }
+		if( debug )
+		{
+			printf("(%0.3f, %0.3f) ", sample_x_, sample_y_);
+		}
 	}
 	if( debug )
 	{
