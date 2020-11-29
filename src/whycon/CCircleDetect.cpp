@@ -26,7 +26,8 @@ CCircleDetect::CCircleDetect(int wi, int he, bool id, int bits, int samples, boo
     ID = -1;
     enableCorrections = false;
     lastTrackOK = false;
-    debug = false;
+//    debug = false;
+    debug = true;
     maxFailed = 0;
     minSize = 100;
     maxThreshold = 256;
@@ -634,7 +635,8 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     float ellipse_sample_points[2][idBits * 2][num_ellipse_sample_points][2]; // the locations of the ellipse samples
 //    float ellipse_edge_signal[2][idBits * 2][num_ellipse_sample_points]; // signal along each sampling line (we shouldn't need this because we can use the average from the ID sampling)
     float ellipse_edge_smooth[2][idBits * 2][num_ellipse_sample_points]; // smoothed version of actual signal
-
+//    float ellipse_edges[2][idBits*2]; // the amount [0, 1] of the line that is in the first sampling area (before the edge where the sampling area changes color)
+    bool ellipse_edges[2][idBits*2][num_ellipse_sample_points]; // marks the transitions from black to white in the smoothed ellipse edge signal (1=edge, 0=not edge)
 
     for(int i = 0; i < 2; i++)
     {
@@ -783,7 +785,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 				brightness += ptr[(pos+0)*step+1]*(1-gx)*(1-gy)+ptr[(pos+1)*step+1]*gx*(1-gy)+ptr[(pos+image->width_)*step+1]*(1-gx)*gy+ptr[step*(pos+image->width_+1)+1]*gx*gy;
 				brightness += ptr[(pos+0)*step+2]*(1-gx)*(1-gy)+ptr[(pos+1)*step+2]*gx*(1-gy)+ptr[(pos+image->width_)*step+2]*(1-gx)*gy+ptr[step*(pos+image->width_+1)+2]*gx*gy;
 
-				// we just need to store the binarized signal
+				// we just need to store the binarized signal (and only for visualization)
 				if( brightness > avg )
 				{
 					ellipse_edge_smooth[i][a][index] = 1;
@@ -792,6 +794,23 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 				{
 					ellipse_edge_smooth[i][a][index] = 0;
 				}
+			}
+		}
+
+		// find the edges
+		bool edge_not_found = true;
+		for(int index = 0; index < num_ellipse_sample_points; index ++)
+		{
+			if( edge_not_found && (ellipse_edge_smooth[i][a][index] == 0) )
+			{
+//				ellipse_edges[i][a] = (float)index / num_ellipse_sample_points;
+				ellipse_edges[i][a][index] = true;
+
+				edge_not_found = false;
+			}
+			else
+			{
+				ellipse_edges[i][a][index] = false;
 			}
 		}
 	}
@@ -833,17 +852,44 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
         printf("\n");
     }
 
+    // print the ellipse sampling edge locations
+    if( debug )
+    {
+	    for(int i = 0; i < 2; i ++)
+	    {
+		    printf("solution %d: ", i);
+		    for(int a = 0; a < 2 * idBits; a ++)
+		    {
+			    printf("%0.3f ", ellipse_edges[i][a]);
+		    }
+		    printf("\n");
+	    }
+    }
+
+#if 1
     // draw the circle for ID sampling
+    // green if the first solution is chosen
+    // blue if the second solution is chosen
     for (int a = 0; a < idSamples; a++)
     {
         pos = ((int)x[segIdx][a] + ((int)y[segIdx][a]) * image->width_);
         if (pos > 0 && pos < image->width_ * image->height_)
         {
-            image->data_[step * pos + 0] = 0;
-            image->data_[step * pos + 1] = (unsigned char)(255.0 * a / idSamples);
-            image->data_[step * pos + 2] = 0;
+	    if( segIdx == 0 )
+	    {
+		    image->data_[step * pos + 0] = 0;
+		    image->data_[step * pos + 1] = (unsigned char)(255.0 * a / idSamples);
+		    image->data_[step * pos + 2] = 0;
+	    }
+	    else if( segIdx == 1 )
+	    {
+		    image->data_[step * pos + 0] = 0;
+		    image->data_[step * pos + 1] = 0;
+		    image->data_[step * pos + 2] = (unsigned char)(255.0 * a / idSamples);
+	    }
         }
     }
+#endif
 
 #if 1
     // draw the ellipse samples
@@ -852,26 +898,49 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     unsigned char intensity_b;
     float sample_x, sample_y;
     for(int i = 0; i < 2; i ++)
+//    for(int i = segIdx; i == segIdx; i ++)
     {
 	for(int a = 0; a < idBits * 2; a ++)
 	{
 	    for(int index = 0; index < num_ellipse_sample_points; index ++)
 	    {
-		sample_x = ellipse_sample_points[i][a][index][0];
-		sample_y = ellipse_sample_points[i][a][index][1];
 		if( ellipse_edge_smooth[i][a][index] == 0)
 		{
-			intensity_r = 255;
+			// identify the black areas with red lines
+			intensity_r = 150;
 			intensity_g = 0;
 			intensity_b = 0;
 		}
-		else
+		else if( i == 0 )
 		{
+			// identify the white areas as green if we are taking the first solution
+			intensity_r = 0;
+			intensity_g = 150;
+			intensity_b = 0;
+		}
+		else if( i == 1 )
+		{
+			// identify the white areas as blue if we are taking the second solution
 			intensity_r = 0;
 			intensity_g = 0;
+			intensity_b = 150;
+		}
+		else
+		{
+			printf("Serious error in drawing ellipse samples!!!!!!!!!!");
+		}
+
+		if( ellipse_edges[i][a][index] )
+		{
+			// draw ellipse edges as white
+			intensity_r = 255;
+			intensity_g = 255;
 			intensity_b = 255;
 		}
 
+		// write the colors to the image
+		sample_x = ellipse_sample_points[i][a][index][0];
+		sample_y = ellipse_sample_points[i][a][index][1];
 		pos = ((int)sample_x + ((int)sample_y) * image->width_);
 		if (pos > 0 && pos < image->width_ * image->height_)
 		{
@@ -880,6 +949,46 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 			image->data_[step * pos + 2] = intensity_b;
 		}
 	    }
+	}
+    }
+#endif
+
+#if 1
+    // draw the edge points (draw them last because they are high priority)
+    float sample_x_, sample_y_;
+    for(int i = 0; i < 2; i ++)
+//    for(int i = segIdx; i == segIdx; i ++)
+    {
+	if( debug )
+	{
+		printf("solution %d edge points: ", i);
+	}
+	for(int a = 0; a < idBits * 2; a ++)
+	{
+	    for(int index = 0; index < num_ellipse_sample_points; index ++)
+	    {
+		if( ellipse_edges[i][a][index] )
+		{
+			// write the colors to the image
+			sample_x_ = ellipse_sample_points[i][a][index][0];
+			sample_y_ = ellipse_sample_points[i][a][index][1];
+			pos = ((int)sample_x_ + ((int)sample_y_) * image->width_);
+			if (pos > 0 && pos < image->width_ * image->height_)
+			{
+				image->data_[step * pos + 0] = 255;
+				image->data_[step * pos + 1] = 255;
+				image->data_[step * pos + 2] = 255;
+			}
+			if( debug )
+			{
+				printf("(%0.3f, %0.3f) ", sample_x_, sample_y_);
+			}
+		}
+	    }
+	}
+	if( debug )
+	{
+		printf("\n");
 	}
     }
 #endif
