@@ -26,8 +26,8 @@ CCircleDetect::CCircleDetect(int wi, int he, bool id, int bits, int samples, boo
     ID = -1;
     enableCorrections = false;
     lastTrackOK = false;
-//    debug = false;
-    debug = true;
+    debug = false;
+//    debug = true;
     maxFailed = 0;
     minSize = 100;
     maxThreshold = 256;
@@ -627,7 +627,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     // scaling factor for the ID sampling ellipse is 2.0
     float inner_ellipse_scaling_factor  = 1.5; // this allows us to predict where the inner white ellipse should be
     float middle_ellipse_scaling_factor = 2.5; // this allows us to predict where ellipse bounding the teeth should be
-    float ellipse_sampling_extent = 0.5; // we sample in [<>_scaling_factor - ellipse_sampling_extent, <>_scaling_factor + ellipse_sampling_extent]. Basically this just changes the length of the sampling line.
+    float ellipse_sampling_extent = 1.5; // we sample in [<>_scaling_factor - ellipse_sampling_extent, <>_scaling_factor + ellipse_sampling_extent]. Basically this just changes the length of the sampling line.
     int num_ellipse_sample_points = 80;  // number of samples in each line
     float increment = (2 * ellipse_sampling_extent) / num_ellipse_sample_points;
     
@@ -818,11 +818,13 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 
 		// find the edges
 		int index = 0;
+		//init
+		ellipse_edges[i][a] = -1;
 		while( (index < num_ellipse_sample_points) && (ellipse_edge_smooth[i][a][index] == 1) )
 		{
 			index ++;
 		}
-		if( index < num_ellipse_sample_points )
+		if( index < num_ellipse_sample_points && (ellipse_edge_smooth[i][a][0] == 1) && (ellipse_edge_smooth[i][a][index] == 0) )
 		{
 			num_ellipse_edges[i] ++;
 			ellipse_edges[i][a] = index;
@@ -851,7 +853,18 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 	
     }
 
-    if(ellipse_edge_variance[0] < ellipse_edge_variance[1])
+    if( num_ellipse_edges[0] > (idBits*2 - 1) && num_ellipse_edges[1] > (idBits*2 - 1) )
+    {
+	    if(ellipse_edge_variance[0] < ellipse_edge_variance[1])
+	    {
+		    segIdx = 0;
+	    }
+	    else
+	    {
+		    segIdx = 1;
+	    }
+    }
+    else if( num_ellipse_edges[0] > num_ellipse_edges[1] )
     {
 	    segIdx = 0;
     }
@@ -859,7 +872,6 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     {
 	    segIdx = 1;
     }
-
 /*    
     if(variance[0] < variance[1])
         segIdx = 0;
@@ -902,7 +914,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     {
 	    for(int i = 0; i < 2; i ++)
 	    {
-		    printf("solution %d: ", i);
+		    printf("solution %d (n=%2d): ", i, num_ellipse_edges[i]);
 		    for(int a = 0; a < 2 * idBits; a ++)
 		    {
 			    printf("%3d ", ellipse_edges[i][a]);
@@ -942,8 +954,8 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     unsigned char intensity_g;
     unsigned char intensity_b;
     float sample_x, sample_y;
-//    for(int i = 0; i < 2; i ++) // draw all ellipse samples
-    for(int i = segIdx; i == segIdx; i ++) // draw ellipse samples for the used solution only
+    for(int i = 0; i < 2; i ++) // draw all ellipse samples
+//    for(int i = segIdx; i == segIdx; i ++) // draw ellipse samples for the used solution only
     {
 	for(int a = 0; a < idBits * 2; a ++)
 	{
@@ -993,8 +1005,8 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 #if 1
     // draw the edge points (draw them last because they are high priority)
     float sample_x_, sample_y_;
-//    for(int i = 0; i < 2; i ++) // draw all edge points
-    for(int i = segIdx; i == segIdx; i ++) // draw edge points for the used solution only
+    for(int i = 0; i < 2; i ++) // draw all edge points
+//    for(int i = segIdx; i == segIdx; i ++) // draw edge points for the used solution only
     {
 	if( debug )
 	{
