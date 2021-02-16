@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+
+	<include file="$(find whycon)/launch/partial.launch" /> 
+
+  <node pkg="rosbag" type="record" name="rosbag_record_markers" args="record /whycon/markers -o master_markers"/>
+
+</launch>
