@@ -627,7 +627,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     // scaling factor for the ID sampling ellipse is 2.0
     float inner_ellipse_scaling_factor  = 1.5; // this allows us to predict where the inner white ellipse should be
     float middle_ellipse_scaling_factor = 2.5; // this allows us to predict where ellipse bounding the teeth should be
-    float ellipse_sampling_extent = 1.5; // we sample in [<>_scaling_factor - ellipse_sampling_extent, <>_scaling_factor + ellipse_sampling_extent]. Basically this just changes the length of the sampling line.
+    float ellipse_sampling_extent = 0.25; // we sample in [<>_scaling_factor - ellipse_sampling_extent, <>_scaling_factor + ellipse_sampling_extent]. Basically this just changes the length of the sampling line.
     int num_ellipse_sample_points = 80;  // number of samples in each line
     float increment = (2 * ellipse_sampling_extent) / num_ellipse_sample_points;
     
@@ -888,6 +888,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     tracked_object.n0 = ellipse_centers.n[segIdx][0];
     tracked_object.n1 = ellipse_centers.n[segIdx][1];
     tracked_object.n2 = ellipse_centers.n[segIdx][2];
+    tracked_object.segIdx = segIdx;
 
     maxIndex = maxIdx[segIdx];
 
@@ -954,8 +955,8 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     unsigned char intensity_g;
     unsigned char intensity_b;
     float sample_x, sample_y;
-    for(int i = 0; i < 2; i ++) // draw all ellipse samples
-//    for(int i = segIdx; i == segIdx; i ++) // draw ellipse samples for the used solution only
+//    for(int i = 0; i < 2; i ++) // draw all ellipse samples
+    for(int i = segIdx; i == segIdx; i ++) // draw ellipse samples for the used solution only
     {
 	for(int a = 0; a < idBits * 2; a ++)
 	{
@@ -964,9 +965,9 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 		if( ellipse_edge_smooth[i][a][index] == 0)
 		{
 			// identify the black areas with red lines
-			intensity_r = 150;
-			intensity_g = 0;
-			intensity_b = 0;
+			intensity_r = 255;
+			intensity_g = 255;
+			intensity_b = 255;
 		}
 		else if( i == 0 )
 		{
@@ -1002,7 +1003,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     }
 #endif
 
-#if 1
+#if 0
     // draw the edge points (draw them last because they are high priority)
     float sample_x_, sample_y_;
     for(int i = 0; i < 2; i ++) // draw all edge points
@@ -1021,7 +1022,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 		if (pos > 0 && pos < image->width_ * image->height_)
 		{
 			image->data_[step * pos + 0] = 255;
-			image->data_[step * pos + 1] = 255;
+			image->data_[step * pos + 1] = 0;
 			image->data_[step * pos + 2] = 255;
 		}
 		if( debug )
