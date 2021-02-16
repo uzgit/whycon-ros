@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+
+  <include file="$(find whycon)/launch/full.launch" /> 
+
+  <node pkg="rosbag" type="record" name="rosbag_record_camera" args="record /usb_cam/image_raw /usb_cam/camera_info -o master_camera"/>
+  <node pkg="rosbag" type="record" name="rosbag_record_markers" args="record /whycon/markers -o master_markers"/>
+
+</launch>

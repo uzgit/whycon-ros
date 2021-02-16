@@ -203,6 +203,7 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
         marker.rotation.x = detection.obj.roll;
         marker.rotation.y = detection.obj.pitch;
         marker.rotation.z = detection.obj.yaw;
+	marker.solution_index = detection.obj.segIdx;
 
 	// Calculate camera position in marker coordinate frame
 	marker.camera_translation = get_camera_translation(marker.position);

@@ -51,6 +51,7 @@ typedef struct
     float angle;                // axis angle around marker's surface normal
     float n0, n1, n2;           // marker surface normal pointing from the camera
     float qx, qy, qz, qw;       // quaternion
+    int segIdx;			// index of orientation solution
     // ??? not used float roundness;            // segment roundness as calculated by 5 of [1]
     // ??? not used float bwratio;              // black/white area ratio
     // ??? not used int ID;                     // ID of marker

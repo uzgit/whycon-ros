@@ -731,6 +731,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     tracked_object.n0 = ellipse_centers.n[segIdx][0];
     tracked_object.n1 = ellipse_centers.n[segIdx][1];
     tracked_object.n2 = ellipse_centers.n[segIdx][2];
+    tracked_object.segIdx = segIdx;
 
     maxIndex = maxIdx[segIdx];
 
