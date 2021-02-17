@@ -704,22 +704,22 @@ double CTransformation::calculateAngularDistance(const STrackedObject &obj1, con
 	double result = 0;
 
 	// double precision version of q1 inverse
-	double qw1 =  (double)obj1.qw;
-	double qx1 = -(double)obj1.qx;
-	double qy1 = -(double)obj1.qy;
-	double qz1 = -(double)obj1.qz;
+	float qw1 =  (float)obj1.qw;
+	float qx1 = -(float)obj1.qx;
+	float qy1 = -(float)obj1.qy;
+	float qz1 = -(float)obj1.qz;
 
-	// double precision version of q2
-	double qw2 =  (double)obj2.qw;
-	double qx2 =  (double)obj2.qx;
-	double qy2 =  (double)obj2.qy;
-	double qz2 =  (double)obj2.qz;
+	// float precision version of q2
+	float qw2 =  (float)obj2.qw;
+	float qx2 =  (float)obj2.qx;
+	float qy2 =  (float)obj2.qy;
+	float qz2 =  (float)obj2.qz;
 
 	// hamilton product
-	double qw3 = qw1 * qw2 - qx1 * qx2 - qy1 * qy2 - qz1 * qz2;
-	double qx3 = qw1 * qx2 + qx1 * qw2 + qy1 * qz2 - qz1 * qy2;
-	double qy3 = qw1 * qy2 - qx1 * qz2 + qy1 * qw2 + qz1 * qx2;
-	double qz3 = qw1 * qz2 + qx1 * qy2 - qy1 * qx2 + qz1 * qw2;
+	float qw3 = qw1 * qw2 - qx1 * qx2 - qy1 * qy2 - qz1 * qz2;
+	float qx3 = qw1 * qx2 + qx1 * qw2 + qy1 * qz2 - qz1 * qy2;
+	float qy3 = qw1 * qy2 - qx1 * qz2 + qy1 * qw2 + qz1 * qx2;
+	float qz3 = qw1 * qz2 + qx1 * qy2 - qy1 * qx2 + qz1 * qw2;
 	
 	result = 2.0 * std::acos( qw3 );
 

@@ -36,7 +36,8 @@ class CCircleDetect {
         void reconfigure(float ict,float fct,float art,float cdtr,float cdta, bool id, int minS);
 
         //main detection method, implements Algorithm 2 of [1] 
-        SMarker findSegment(CRawImage* image, SSegment init);
+//        SMarker findSegment(CRawImage* image, SSegment init);
+        SMarker findSegment(CRawImage* image, SMarker init_marker);
 
         //local pattern search - implements Algorithm 1 of [1]
         bool examineSegment(CRawImage* image,SSegment *segmen,int ii,float areaRatio);
@@ -56,7 +57,7 @@ class CCircleDetect {
         // adjust the dimensions of the image, when the image size changes
         int adjustDimensions(int wi, int he);
 
-        void ambiguityAndObtainCode(CRawImage *image);
+        void ambiguityAndObtainCode(CRawImage *image, SMarker init_marker);
         void ambiguityPlain();
         void setDraw(bool draw);
 
@@ -115,7 +116,7 @@ class CCircleDetect {
         
 	// for orientation correction
 	STrackedObject prev_tracked_object;
-        STrackedObject tracked_object_buffer;
+        STrackedObject tracked_object_buffer[2];
 };
 
 }

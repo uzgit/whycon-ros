@@ -240,7 +240,7 @@ void CWhycon::processImage(CRawImage *image, std::vector<SMarker> &whycon_detect
         {
 	    printf("ID: %d->%d\n", last_marker_array_[i].seg.ID, current_marker_array_[i].seg.ID);
             last_marker_array_[i] = current_marker_array_[i];
-            current_marker_array_[i] = detector_array_[i]->findSegment(image, last_marker_array_[i].seg);
+            current_marker_array_[i] = detector_array_[i]->findSegment(image, last_marker_array_[i]);
         }
     }
 
@@ -251,7 +251,7 @@ void CWhycon::processImage(CRawImage *image, std::vector<SMarker> &whycon_detect
         {
             last_marker_array_[i].valid = false;
             last_marker_array_[i].seg.valid = false;
-            current_marker_array_[i] = detector_array_[i]->findSegment(image, last_marker_array_[i].seg);
+            current_marker_array_[i] = detector_array_[i]->findSegment(image, last_marker_array_[i]);
         }
         if(current_marker_array_[i].seg.valid == false) break;  //does not make sense to search for more patterns if the last one was not found
     }

@@ -283,8 +283,12 @@ SSegment CCircleDetect::calcSegment(SSegment segment, int size, long int x, long
     return result;
 }
 
-SMarker CCircleDetect::findSegment(CRawImage* image, SSegment init)
+//SMarker CCircleDetect::findSegment(CRawImage* image, SSegment init)
+SMarker CCircleDetect::findSegment(CRawImage* image, SMarker init_marker)
 {
+
+    SSegment init = init_marker.seg;
+
     numSegments = 0;
     int pos = 0;
     int ii = 0;
@@ -525,7 +529,7 @@ SMarker CCircleDetect::findSegment(CRawImage* image, SSegment init)
         ellipse_centers = trans_->calcSolutions(outer);
         
         if(identify)
-            ambiguityAndObtainCode(image);
+            ambiguityAndObtainCode(image, init_marker);
         else
             ambiguityPlain();
 
@@ -587,7 +591,8 @@ SMarker CCircleDetect::findSegment(CRawImage* image, SSegment init)
     return output;
 }
 
-void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
+//void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
+void CCircleDetect::ambiguityAndObtainCode(CRawImage *image, SMarker prev)
 {
     int segIdx = 0;
 
@@ -855,30 +860,28 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 	
     }
 
-//    printf("prev: %10.10f , %10.10f , %10.10f , %10.10f\n", prev_tracked_object.qw, prev_tracked_object.qx, prev_tracked_object.qy, prev_tracked_object.qz);
+    // calculate angular distance from previous solution to current solution candidates
+    printf("prev: %10.10f , %10.10f , %10.10f , %10.10f\n", prev.obj.qw, prev.obj.qx, prev.obj.qy, prev.obj.qz);
     printf("prev: %10.10f , %10.10f , %10.10f , %10.10f\n", tracked_object.qw, tracked_object.qx, tracked_object.qy, tracked_object.qz);
     for(int i = 0; i < 2; i++)
     {
-	    tracked_object_buffer.n0 = ellipse_centers.n[i][0];
-	    tracked_object_buffer.n1 = ellipse_centers.n[i][1];
-	    tracked_object_buffer.n2 = ellipse_centers.n[i][2];
+	    tracked_object_buffer[i].u = ellipse_centers.u[i];
+	    tracked_object_buffer[i].v = ellipse_centers.v[i];
+	    tracked_object_buffer[i].x = ellipse_centers.t[i][0];
+	    tracked_object_buffer[i].y = ellipse_centers.t[i][1];
+	    tracked_object_buffer[i].z = ellipse_centers.t[i][2];
+	    tracked_object_buffer[i].n0 = ellipse_centers.n[i][0];
+	    tracked_object_buffer[i].n1 = ellipse_centers.n[i][1];
+	    tracked_object_buffer[i].n2 = ellipse_centers.n[i][2];
+	    tracked_object_buffer[i].segIdx = i;
 
-	    trans_->calcOrientation(tracked_object_buffer);
+	    trans_->calcOrientation(tracked_object_buffer[i]);
+	    trans_->transformCoordinates(tracked_object_buffer[i]);
 
-//	    angular_distance_from_previous[i] = trans_->calculateAngularDistance(prev_tracked_object, tracked_object_buffer);
-	    angular_distance_from_previous[i] = trans_->calculateAngularDistance(tracked_object, tracked_object_buffer);
-	    printf(" [%d]: %10.10f , %10.10f , %10.10f , %10.10f -> %10.10f\n", i, tracked_object_buffer.qw, tracked_object_buffer.qx, tracked_object_buffer.qy, tracked_object_buffer.qz, angular_distance_from_previous[i]);
-
-//	    printf("(%10f, %10f, %10f, %10f)^(-1) * ", tracked_object.qx, tracked_object.qy, tracked_object.qz, tracked_object.qw); 
-//	    printf(" (%10f, %10f, %10f, %10f) -> %10f", tracked_object_buffer.qx, tracked_object_buffer.qy, tracked_object_buffer.qz, tracked_object_buffer.qw, angular_distance_from_previous[i]); 
-//	    if( angular_distance_from_previous[i] > 0.1  || angular_distance_from_previous[i] < -0.1 )
-//	    {
-//		    printf(" ****************************\n");
-//	    }
-//	    else
-//	    {
-//		    printf("\n");
-//	    }
+//	    angular_distance_from_previous[i] = trans_->calculateAngularDistance(prev.obj, tracked_object_buffer[i]);
+	    angular_distance_from_previous[i] = trans_->calculateAngularDistance(tracked_object, tracked_object_buffer[i]);
+	    
+	    printf(" [%d]: %10.10f , %10.10f , %10.10f , %10.10f -> %10.10f\n", i, tracked_object_buffer[i].qw, tracked_object_buffer[i].qx, tracked_object_buffer[i].qy, tracked_object_buffer[i].qz, angular_distance_from_previous[i]);
     }
 
     if( num_ellipse_edges[0] > (idBits*2 - 1) && num_ellipse_edges[1] > (idBits*2 - 1) )
@@ -900,6 +903,21 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     {
 	    segIdx = 1;
     }
+
+/*
+    if( std::abs(angular_distance_from_previous[0] - angular_distance_from_previous[1]) > 0.1 )
+    {
+	    if( std::abs(angular_distance_from_previous[0]) < std::abs(angular_distance_from_previous[1]) )
+	    {
+		    segIdx = 0;
+	    }
+	    else
+	    {
+		    segIdx = 1;
+	    }
+    }
+*/
+
 /*    
     if(variance[0] < variance[1])
         segIdx = 0;
@@ -918,11 +936,6 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     tracked_object.n2 = ellipse_centers.n[segIdx][2];
     tracked_object.segIdx = segIdx;
 
-    prev_tracked_object = tracked_object;
-//    trans_->calcOrientation(prev_tracked_object);
-//    printf("\n\nsurface normal: (%f, %f, %f)\n", prev_tracked_object.n0, prev_tracked_object.n1, prev_tracked_object.n2);
-//    printf("quaternion: (%f, %f, %f, %f)\n", prev_tracked_object.qx, prev_tracked_object.qy, prev_tracked_object.qz, prev_tracked_object.qw); 
-    
     maxIndex = maxIdx[segIdx];
 
     //char realCode[idBits*4];
