@@ -238,6 +238,7 @@ void CWhycon::processImage(CRawImage *image, std::vector<SMarker> &whycon_detect
     {
         if(current_marker_array_[i].valid)
         {
+	    printf("ID: %d->%d\n", last_marker_array_[i].seg.ID, current_marker_array_[i].seg.ID);
             last_marker_array_[i] = current_marker_array_[i];
             current_marker_array_[i] = detector_array_[i]->findSegment(image, last_marker_array_[i].seg);
         }

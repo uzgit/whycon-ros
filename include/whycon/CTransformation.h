@@ -53,6 +53,8 @@ class CTransformation
         void calibrate2D(const STrackedObject *in, const float g_dim_x, const float g_dim_y, const float robot_radius = 0.0, const float robot_height = 0.0, const float camera_height = 1.0);
         void calibrate3D(const STrackedObject *o, const float g_dim_x, const float g_dim_y);
 
+	double calculateAngularDistance(const STrackedObject &obj1, const STrackedObject &obj2);
+
     private:
         /* transform into planar coordinates */
         void transform2D(STrackedObject &o);

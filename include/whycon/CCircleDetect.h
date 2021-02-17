@@ -112,6 +112,10 @@ class CCircleDetect {
 
         SEllipseCenters ellipse_centers;
         STrackedObject tracked_object;
+        
+	// for orientation correction
+	STrackedObject prev_tracked_object;
+        STrackedObject tracked_object_buffer;
 };
 
 }

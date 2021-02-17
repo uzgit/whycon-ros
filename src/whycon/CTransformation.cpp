@@ -662,4 +662,79 @@ void CTransformation::calcEulerFromQuat(STrackedObject &obj)
     // std::printf("roll %.3f pitch %.3f yaw %.3f\n", obj.roll, obj.pitch, obj.yaw);
 }
 
+/*
+// get angle between quaternion of obj1 and obj2
+// both quaternions are assumed to be normalized
+float CTransformation::calculateAngularDistance(const STrackedObject &obj1, const STrackedObject &obj2)
+{
+	float result = 0;
+
+	float cx, cy, cz, cw;
+	float px, py, pz, pw;
+
+	// theta = (q1.inverse() * q2).magnitude()
+
+	// calculate q1.inverse() in c[x, y, z, w]
+	// inverse of normalized quaternion = conjugate of normalized quaternion
+	// seems to be ok
+	conjugate_quaternion(obj1.qx, obj1.qy, obj1.qz, obj1.qw,
+			          cx,      cy,      cz,      cw);
+
+	// calculate q1.inverse() * q2 
+	hamilton_product(     cx,      cy,      cz,      cw,
+			 obj2.qx, obj2.qy, obj2.qz, obj2.qw,
+			      px,      py,      pz,      pw);
+
+	result = quaternion_norm(px, py, pz, pw) - 1.0;
+
+	printf("(%5.10f, %5.10f, %5.10f, %5.10f)^(-1) = ", obj1.qw, obj1.qx, obj1.qy, obj1.qz);
+	printf("(%5.10f, %5.10f, %5.10f, %5.10f)\n", cw, cx, cy, cz);
+
+	printf("(%5.10f, %5.10f, %5.10f, %5.10f) * ", cw, cy, cz, cz);
+	printf("(%5.10f, %5.10f, %5.10f, %5.10f) = ", obj2.qw, obj2.qx, obj2.qy, obj2.qz);
+	printf("(%5.10f, %5.10f, %5.10f, %5.10f) -> ", pw, px, py, pz);
+	printf("%5.10f\n", result);
+
+	return result;
+}
+*/
+
+double CTransformation::calculateAngularDistance(const STrackedObject &obj1, const STrackedObject &obj2)
+{
+	double result = 0;
+
+	// double precision version of q1 inverse
+	double qw1 =  (double)obj1.qw;
+	double qx1 = -(double)obj1.qx;
+	double qy1 = -(double)obj1.qy;
+	double qz1 = -(double)obj1.qz;
+
+	// double precision version of q2
+	double qw2 =  (double)obj2.qw;
+	double qx2 =  (double)obj2.qx;
+	double qy2 =  (double)obj2.qy;
+	double qz2 =  (double)obj2.qz;
+
+	// hamilton product
+	double qw3 = qw1 * qw2 - qx1 * qx2 - qy1 * qy2 - qz1 * qz2;
+	double qx3 = qw1 * qx2 + qx1 * qw2 + qy1 * qz2 - qz1 * qy2;
+	double qy3 = qw1 * qy2 - qx1 * qz2 + qy1 * qw2 + qz1 * qx2;
+	double qz3 = qw1 * qz2 + qx1 * qy2 - qy1 * qx2 + qz1 * qw2;
+	
+	result = 2.0 * std::acos( qw3 );
+
+/*
+	printf("%10.10f, %10.10f, %10.10f, %10.10f * ", qw1, qx1, qy1, qz1);
+	printf("%10.10f, %10.10f, %10.10f, %10.10f = ", qw2, qx2, qy2, qz2);
+	printf("%10.10f, %10.10f, %10.10f, %10.10f with angle ", qw3, qx3, qy3, qz3);
+
+	printf("%20.20f", result);
+	if( result > 0.15 )
+		printf(" **********************");
+	printf("\n");
+*/
+
+	return result;
+}
+
 }
