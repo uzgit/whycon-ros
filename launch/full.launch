@@ -1,7 +1,12 @@
 <?xml version="1.0"?>
 <launch>
 
-  <node pkg="usb_cam" type="usb_cam_node" name="usb_cam" output="log"/>
+  <node pkg="usb_cam" type="usb_cam_node" name="usb_cam" output="log">
+    <param name="video_device" value="/dev/video0" />
+    <param name="image_width" value="960" />
+    <param name="image_height" value="720" />
+    <param name="pixel_format" value="yuyv" />
+  </node>
   <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="reconfigurator"/>
   
   <arg name="cam_info"  default="/usb_cam/camera_info"  doc="camera_info topic"/>
