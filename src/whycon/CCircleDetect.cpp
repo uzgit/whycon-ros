@@ -621,7 +621,10 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     float numPoints[2];
 
     char code[2][idBits * 4];
-    
+   
+    SDecoded segment_decode[2];
+    char realCode[2][idBits + 1];
+
     for(int i = 0; i < 2; i++)
     {
         //calculate appropriate positions
@@ -715,6 +718,8 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
             code[i][a] = smooth[i][(maxIdx[i] + a * segmentWidth) % idSamples] + '0';
 
         code[i][idBits*2] = 0;
+    
+	segment_decode[i] = decoder_->decode(code[segIdx], realCode[i], maxIdx[i], outer.v0, outer.v1);
     }
 
     if(variance[0] < variance[1])
@@ -735,17 +740,22 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 
     maxIndex = maxIdx[segIdx];
 
-    //char realCode[idBits*4];
-    char realCode[idBits + 1];
+    outer.ID = segment_decode[segIdx].id + 1;
+    tracked_object.angle = segment_decode[segIdx].angle;
 
+    //char realCode[idBits*4];
+//    char realCode[idBits + 1];
+
+/*
     SDecoded segment_decode = decoder_->decode(code[segIdx], realCode, maxIndex, outer.v0, outer.v1);
     outer.ID = segment_decode.id + 1;
     tracked_object.angle = segment_decode.angle;
+*/
 
     if (debug)
     {
-        printf("CODE %i %i %.3f\n", segment_decode.id, maxIndex, segment_decode.angle);
-        printf("Realcode %s %i %s\n", code[segIdx], segment_decode.edgeIndex, realCode);
+        printf("CODE %i %i %.3f\n", segment_decode[segIdx].id, maxIndex, segment_decode[segIdx].angle);
+        printf("Realcode %s %i %s\n", code[segIdx], segment_decode[segIdx].edgeIndex, realCode[segIdx]);
         printf("ORIG signal: ");
         for (int a = 0; a < idSamples; a++) printf("%.2f ", signal[segIdx][a]);
         printf("\nsmooth: ");
@@ -753,14 +763,120 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
         printf("\n");
     }
 
+    // draw a line going from ellipse center to "angle"
+    int line_x;
+    int line_y;
+
+    for(int i = 0; i < 2; i ++)
+    {
+	    float reference_angle = segment_decode[i].angle - 0.4799655;
+	    for(int a = 0; a < 100; a ++)
+	    {
+//	            x[i][a] = tmp[i].x + (tmp[i].m0 * cos((float)a/idSamples*2*M_PI) * tmp[i].v0 + tmp[i].m1 * sin((float)a/idSamples*2*M_PI) * tmp[i].v1)*2.0;
+//	            y[i][a] = tmp[i].y + (tmp[i].m0 * cos((float)a/idSamples*2*M_PI) * tmp[i].v1 - tmp[i].m1 * sin((float)a/idSamples*2*M_PI) * tmp[i].v0)*2.0;    
+
+                line_x = ellipse_centers.u[segIdx] + (a * cos(reference_angle));
+		line_y = ellipse_centers.v[segIdx] + (a * sin(reference_angle));
+
+		pos = ((int)line_x + ((int)line_y) * image->width_);
+		if( pos > 0 && pos < image->width_ * image->height_ )
+		{
+			if( i == 0)
+			{
+				image->data_[step * pos + 0] = 0;
+				image->data_[step * pos + 1] = 255;
+				image->data_[step * pos + 2] = 0;
+			}
+			else if( i == 1 )
+			{
+				image->data_[step * pos + 0] = 0;
+				image->data_[step * pos + 1] = 0;
+				image->data_[step * pos + 2] = 255;
+			}
+		}
+	    }
+    }
+
+    for(int i = 0; i < 2; i ++)
+    {
+	    printf("%d -- u: %10.10f, v: %10.10f, t0: %10.10f, t1: %10.10f, t2: %10.10f, n0: %10.10f, n1: %10.10f, n2: %10.10f\n",
+		    i,
+		    ellipse_centers.u[i],
+		    ellipse_centers.v[i],
+		    ellipse_centers.t[i][0],
+		    ellipse_centers.t[i][1],
+		    ellipse_centers.t[i][2],
+		    ellipse_centers.n[i][0],
+		    ellipse_centers.n[i][1],
+		    ellipse_centers.n[i][2]);
+    }
+    printf("\n");
+
+    float center_x;
+    float center_y;
+    for(int i = 0; i < 2; i ++)
+    {
+	    float reference_angle = segment_decode[i].angle - 0.4799655;
+
+	    float r1 = (tmp[i].m0 * cos(reference_angle) * tmp[i].v0 + tmp[i].m1 * sin(reference_angle) * tmp[i].v1);
+	    float r2 = (tmp[i].m0 * cos(reference_angle) * tmp[i].v1 - tmp[i].m1 * sin(reference_angle) * tmp[i].v0);
+	    int radius = std::sqrt(r1*r1 + r2*r2);
+
+	    center_x = tmp[i].x + cos(reference_angle) * radius * 5.5;
+	    center_y = tmp[i].y + sin(reference_angle) * radius * 5.5;
+//	    center_x = tmp[i].x + (tmp[i].m0 * cos(reference_angle) * tmp[i].v0 + tmp[i].m1 * sin(reference_angle) * tmp[i].v1) * 3.0;
+//	    center_y = tmp[i].y + (tmp[i].m0 * cos(reference_angle) * tmp[i].v1 - tmp[i].m1 * sin(reference_angle) * tmp[i].v0) * 3.0;    
+
+	    int WIDTH  = (int)r1;
+	    int HEIGHT = (int)r2;
+
+//	    printf("%d: W=%d, H=%d\n", i, WIDTH, HEIGHT);
+
+	    for(int width = -WIDTH; width < WIDTH; width ++)
+	    {
+		    for(int height = -HEIGHT; height < HEIGHT; height ++)
+		    {
+			pos = ((int)(center_x + width) + ((int)(center_y + height)) * image->width_);
+			if( pos > 0 && pos < image->width_ * image->height_ )
+			{
+				if( i == 0)
+				{
+					image->data_[step * pos + 0] = 0;
+					image->data_[step * pos + 1] = 255;
+					image->data_[step * pos + 2] = 0;
+				}
+				else if( i == 1 )
+				{
+					image->data_[step * pos + 0] = 0;
+					image->data_[step * pos + 1] = 0;
+					image->data_[step * pos + 2] = 255;
+				}
+			}
+		    }
+	    }
+//	    printf("%d: (%10.10f, %10.10f)\n", i, center_x, center_y);
+    }
+    printf("\n");
+
+    int index;
     for (int a = 0; a < idSamples; a++)
     {
-        pos = ((int)x[segIdx][a] + ((int)y[segIdx][a]) * image->width_);
+	index = (segment_decode[segIdx].edgeIndex + a) % idSamples;
+        pos = ((int)x[segIdx][index] + ((int)y[segIdx][index]) * image->width_);
         if (pos > 0 && pos < image->width_ * image->height_)
         {
-            image->data_[step * pos + 0] = 0;
-            image->data_[step * pos + 1] = (unsigned char)(255.0 * a / idSamples);
-            image->data_[step * pos + 2] = 0;
+	    if( segIdx == 0 )
+	    {
+		    image->data_[step * pos + 0] = 0;
+		    image->data_[step * pos + 1] = (unsigned char)(255.0 * a / idSamples);
+		    image->data_[step * pos + 2] = 0;
+	    }
+	    else if( segIdx == 1 )
+	    {
+		    image->data_[step * pos + 0] = 0;
+		    image->data_[step * pos + 1] = 0;
+		    image->data_[step * pos + 2] = (unsigned char)(255.0 * a / idSamples);
+	    }
         }
     }
 }
