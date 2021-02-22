@@ -623,12 +623,15 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 
     char code[2][idBits * 4];
 
+    SDecoded segment_decode[2];
+    char realCode[2][idBits + 1];
+
 // edits for orientation resolution
     // scaling factor for the ID sampling ellipse is 2.0
     float inner_ellipse_scaling_factor  = 1.5; // this allows us to predict where the inner white ellipse should be
     float middle_ellipse_scaling_factor = 2.5; // this allows us to predict where ellipse bounding the teeth should be
-    float ellipse_sampling_extent = 0.25; // we sample in [<>_scaling_factor - ellipse_sampling_extent, <>_scaling_factor + ellipse_sampling_extent]. Basically this just changes the length of the sampling line.
-    int num_ellipse_sample_points = 80;  // number of samples in each line
+    float ellipse_sampling_extent = 1.0; // we sample in [<>_scaling_factor - ellipse_sampling_extent, <>_scaling_factor + ellipse_sampling_extent]. Basically this just changes the length of the sampling line.
+    int num_ellipse_sample_points = 1000;  // number of samples in each line
     float increment = (2 * ellipse_sampling_extent) / num_ellipse_sample_points;
     
 //			[2] candidate solutions, [idBits * 2] number of teeth, [num_ellipse_sample_points] number of sample points, [2] for x,y
@@ -850,7 +853,8 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 	{
 		ellipse_edge_variance[i] /= (num_ellipse_edges[i] - 1);
 	}
-	
+
+	segment_decode[i] = decoder_->decode(code[segIdx], realCode[i], maxIdx[i], outer.v0, outer.v1);
     }
 
     if( num_ellipse_edges[0] > (idBits*2 - 1) && num_ellipse_edges[1] > (idBits*2 - 1) )
@@ -893,16 +897,16 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     maxIndex = maxIdx[segIdx];
 
     //char realCode[idBits*4];
-    char realCode[idBits + 1];
+//    char realCode[idBits + 1];
 
-    SDecoded segment_decode = decoder_->decode(code[segIdx], realCode, maxIndex, outer.v0, outer.v1);
-    outer.ID = segment_decode.id + 1;
-    tracked_object.angle = segment_decode.angle;
+//    SDecoded segment_decode = decoder_->decode(code[segIdx], realCode, maxIndex, outer.v0, outer.v1);
+    outer.ID = segment_decode[segIdx].id + 1;
+    tracked_object.angle = segment_decode[segIdx].angle;
 
     if (debug)
     {
-        printf("CODE %i %i %.3f\n", segment_decode.id, maxIndex, segment_decode.angle);
-        printf("Realcode %s %i %s\n", code[segIdx], segment_decode.edgeIndex, realCode);
+        printf("CODE %i %i %.3f\n", segment_decode[segIdx].id, maxIndex, segment_decode[segIdx].angle);
+        printf("Realcode %s %i %s\n", code[segIdx], segment_decode[segIdx].edgeIndex, realCode[segIdx]);
         printf("ORIG signal: ");
         for (int a = 0; a < idSamples; a++) printf("%.2f ", signal[segIdx][a]);
         printf("\nsmooth: ");
@@ -1001,6 +1005,118 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 	    }
 	}
     }
+#endif
+
+#if 1
+    // draw a line going from ellipse center to "angle"
+    int line_x;
+    int line_y;
+
+    for(int i = 0; i < 2; i ++)
+    {
+            float reference_angle = segment_decode[i].angle - 0.4799655;
+            float r1 = (tmp[i].m0 * cos(reference_angle) * tmp[i].v0 + tmp[i].m1 * sin(reference_angle) * tmp[i].v1);
+            float r2 = (tmp[i].m0 * cos(reference_angle) * tmp[i].v1 - tmp[i].m1 * sin(reference_angle) * tmp[i].v0);
+            int radius = std::sqrt(r1*r1 + r2*r2) * 5.5;
+            
+	    for(int a = 0; a < radius; a ++)
+            {
+//                  x[i][a] = tmp[i].x + (tmp[i].m0 * cos((float)a/idSamples*2*M_PI) * tmp[i].v0 + tmp[i].m1 * sin((float)a/idSamples*2*M_PI) * tmp[i].v1)*2.0;
+//                  y[i][a] = tmp[i].y + (tmp[i].m0 * cos((float)a/idSamples*2*M_PI) * tmp[i].v1 - tmp[i].m1 * sin((float)a/idSamples*2*M_PI) * tmp[i].v0)*2.0;    
+
+                line_x = ellipse_centers.u[segIdx] + (a * cos(reference_angle));
+                line_y = ellipse_centers.v[segIdx] + (a * sin(reference_angle));
+
+                pos = ((int)line_x + ((int)line_y) * image->width_);
+                if( pos > 0 && pos < image->width_ * image->height_ )
+                {
+                        if( i == 0)
+                        {
+                                image->data_[step * pos + 0] = 0;
+                                image->data_[step * pos + 1] = 255;
+                                image->data_[step * pos + 2] = 0;
+                        }
+                        else if( i == 1 )
+                        {
+                                image->data_[step * pos + 0] = 0;
+                                image->data_[step * pos + 1] = 0;
+                                image->data_[step * pos + 2] = 255;
+                        }
+                }
+            }
+    }
+
+    printf("ID: %d\n", outer.ID);
+    for(int i = 0; i < 2; i ++)
+    {
+            printf("%d -- u: %10.10f, v: %10.10f, t0: %10.10f, t1: %10.10f, t2: %10.10f, n0: %10.10f, n1: %10.10f, n2: %10.10f\n",
+                    i,
+                    ellipse_centers.u[i],
+                    ellipse_centers.v[i],
+                    ellipse_centers.t[i][0],
+                    ellipse_centers.t[i][1],
+                    ellipse_centers.t[i][2],
+                    ellipse_centers.n[i][0],
+                    ellipse_centers.n[i][1],
+                    ellipse_centers.n[i][2]);
+    }
+    printf("\n");
+
+    float offset[2] = {-0.2, 0.2};
+    float center_x;
+    float center_y;
+    for(int i = 0; i < 2; i ++)
+    {
+            float reference_angle = segment_decode[i].angle - 0.4799655 + offset[i];
+
+//          center_x = tmp[i].x + (tmp[i].m0 * cos(reference_angle) * tmp[i].v0 + tmp[i].m1 * sin(reference_angle) * tmp[i].v1) * 3.0;
+//          center_y = tmp[i].y + (tmp[i].m0 * cos(reference_angle) * tmp[i].v1 - tmp[i].m1 * sin(reference_angle) * tmp[i].v0) * 3.0;    
+
+//            int WIDTH  = (int)r1;
+//            int HEIGHT = (int)r2;
+
+	    int base = 10;
+	    int WIDTH = base * abs(ellipse_centers.n[i][1]);
+	    int HEIGHT = base * abs(ellipse_centers.n[i][2]);
+
+	    if( ellipse_centers.n[i][1] < 0 )
+	    {
+		    reference_angle += M_PI;
+	    }
+            float r1 = (tmp[i].m0 * cos(reference_angle) * tmp[i].v0 + tmp[i].m1 * sin(reference_angle) * tmp[i].v1);
+            float r2 = (tmp[i].m0 * cos(reference_angle) * tmp[i].v1 - tmp[i].m1 * sin(reference_angle) * tmp[i].v0);
+            int radius = std::sqrt(r1*r1 + r2*r2);
+
+            center_x = tmp[i].x + cos(reference_angle) * radius * 5.5;
+            center_y = tmp[i].y + sin(reference_angle) * radius * 5.5;
+
+          printf("%d: W=%d, H=%d\n", i, WIDTH, HEIGHT);
+
+            for(int width = -WIDTH; width < WIDTH; width ++)
+            {
+                    for(int height = -HEIGHT; height < HEIGHT; height ++)
+                    {
+                        pos = ((int)(center_x + width) + ((int)(center_y + height)) * image->width_);
+                        if( pos > 0 && pos < image->width_ * image->height_ )
+                        {
+                                if( i == 0)
+                                {
+                                        image->data_[step * pos + 0] = 0;
+                                        image->data_[step * pos + 1] = 255;
+                                        image->data_[step * pos + 2] = 0;
+                                }
+                                else if( i == 1 )
+                                {
+                                        image->data_[step * pos + 0] = 0;
+                                        image->data_[step * pos + 1] = 0;
+                                        image->data_[step * pos + 2] = 255;
+                                }
+                        }
+                    }
+            }
+//          printf("%d: (%10.10f, %10.10f)\n", i, center_x, center_y);
+    }
+    printf("\n");
 #endif
 
 #if 0

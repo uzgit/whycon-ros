@@ -298,8 +298,10 @@ CWhyconROSNode::CWhyconROSNode()
     int id_samples;                 // num of samples to identify ID
     int hamming_dist;               // hamming distance of ID code
     int num_markers;                // initial number of markers
-    int default_width = 640;
-    int default_height = 480;
+//    int default_width = 640;
+//    int default_height = 480;
+    int default_width = 960;
+    int default_height = 720;
 
     // obtain parameters
     nh.param("use_gui", use_gui_, true);
