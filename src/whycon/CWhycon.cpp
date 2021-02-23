@@ -331,6 +331,7 @@ void CWhycon::updateConfiguration(bool id, float diam, int markers, int size, do
     identify_ = id;
 
     trans_->setCircleDiameter(diam);
+    trans_->setDefaultCircleDiameter(diam);
 
     if(num_markers_ != markers)
     {

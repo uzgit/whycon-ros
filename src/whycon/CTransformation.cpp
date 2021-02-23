@@ -49,6 +49,16 @@ void CTransformation::setCircleDiameter(const float circle_diam)
     circle_diameter_ = circle_diam;
 }
 
+void CTransformation::resetCircleDiameterToDefault()
+{
+	setCircleDiameter( default_circle_diameter_ );
+}
+
+void CTransformation::setDefaultCircleDiameter(const float circle_diam)
+{
+	default_circle_diameter_ = circle_diam;
+}
+
 void CTransformation::updateCameraParams(const std::vector<float> &intri, const std::vector<float> &dist)
 {
     for(int i = 0; i < 5; i++)

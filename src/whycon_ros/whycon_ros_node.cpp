@@ -14,8 +14,36 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 /////////////////////////////////////////////////////////////
 
+// for co-planar markers
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Dense>
+#include <eigen3/Eigen/Geometry>
+#include <vector>
+
 namespace whycon_ros
 {
+
+template<class Vector3>
+std::pair<Vector3, Vector3> best_plane_from_points(const std::vector<Vector3> & c)
+{
+        // copy coordinates to  matrix in Eigen format
+        size_t num_atoms = c.size();
+        Eigen::Matrix< Vector3::Scalar, Eigen::Dynamic, Eigen::Dynamic > coord(3, num_atoms);
+        for (size_t i = 0; i < num_atoms; ++i) coord.col(i) = c[i];
+
+        // calculate centroid
+        Vector3 centroid(coord.row(0).mean(), coord.row(1).mean(), coord.row(2).mean());
+
+        // subtract centroid
+        coord.row(0).array() -= centroid(0); coord.row(1).array() -= centroid(1); coord.row(2).array() -= centroid(2);
+
+        // we only need the left-singular matrix here
+        //  http://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
+        auto svd = coord.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
+        //Vector3 plane_normal = svd.matrixU().rightCols<1>();
+        auto plane_normal = svd.matrixU().rightCols(1);
+        return std::make_pair(centroid, plane_normal);
+}
 
 bool CWhyconROSNode::setDrawingCallback(whycon::SetDrawing::Request &req, whycon::SetDrawing::Response &res)
 {
@@ -258,6 +286,70 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
 
             visual_array.markers.push_back(visual_marker);
         }
+    }
+
+    if( marker_array.markers.size() > 3 )
+    {
+	    std::vector<Eigen::Vector3d> points;
+
+	    double angle = 0;
+
+	    for( whycon::Marker marker : marker_array.markers )
+	    {
+		    points.push_back( Eigen::Vector3d( marker.position.position.x, marker.position.position.y, marker.position.position.z ) );
+		    angle += marker.angle;
+//		    printf("(%f, %f, %f)  ", marker.position.position.x, marker.position.position.y, marker.position.position.z);
+	    }
+//	    printf("\n");
+
+	angle /= marker_array.markers.size();
+
+	printf("\taverage angle: %f\n", angle);
+
+	auto result = best_plane_from_points(points);
+
+        auto centroid = result.first;
+        auto normal   = result.second;
+
+	if( normal[0] < 0 )
+	{
+		normal[0] *= -1;
+		normal[1] *= -1;
+		normal[2] *= -1;
+	}
+
+//	printf("centroid: (%10.10f, %10.10f, %10.10f)    normal: (%10.10f, %10.10f, %10.10f)\n", centroid[0], centroid[1], centroid[2], normal[0], normal[1], normal[2]);
+//	std::cout << "centroid:" << std::endl << centroid << std::endl;
+//	std::cout << "normal:" << std::endl << normal << std::endl;
+	
+        Eigen::Vector3d up = Eigen::Vector3d::UnitX();
+        Eigen::Quaterniond orientation = Eigen::Quaterniond::FromTwoVectors(up, normal);
+
+//	std::cout << orientation.coeffs() << std::endl;
+
+	auto w = orientation.w();
+	auto quaternion_axis = orientation.vec();
+
+//	std::cout << orientation.w() << "," << quaternion_axis[0] << ", " << quaternion_axis[1] << ", " << quaternion_axis[2] << std::endl;
+//	std::cout << orientation.w() << "," << orientation.vec() << std::endl;
+        Eigen::Vector3d euler_angles = Eigen::Matrix3d(orientation).eulerAngles(0, 1, 2);
+
+
+//	std::cout << " euler: (" << euler_angles[0] << ", " << euler_angles[1] << ", " << euler_angles[2] << ")" << std::endl;
+
+	geometry_msgs::Pose plane_pose;
+	plane_pose.position.x = centroid[0];
+	plane_pose.position.y = centroid[1];
+	plane_pose.position.z = centroid[2];
+
+	plane_pose.orientation.w = w;
+	plane_pose.orientation.x = quaternion_axis[0];
+	plane_pose.orientation.y = quaternion_axis[1];
+	plane_pose.orientation.z = quaternion_axis[2];
+
+	geometry_msgs::Point plane_camera_translation = get_camera_translation(plane_pose);
+
+	std::cout << plane_camera_translation << std::endl;
     }
 
     // publishing detected markers

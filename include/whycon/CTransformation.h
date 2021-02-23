@@ -49,6 +49,10 @@ class CTransformation
         /* update circle diameter */
         void setCircleDiameter(const float circle_diam);
 
+	// sets the circle diameter to the default circle diameter
+	void resetCircleDiameterToDefault();
+	void setDefaultCircleDiameter(const float circle_diam);
+
         /* establish the user-defined coordinate system from four calibration patterns - see 4.4 of [1] */
         void calibrate2D(const STrackedObject *in, const float g_dim_x, const float g_dim_y, const float robot_radius = 0.0, const float robot_height = 0.0, const float camera_height = 1.0);
         void calibrate3D(const STrackedObject *o, const float g_dim_x, const float g_dim_y);
@@ -86,6 +90,7 @@ class CTransformation
         float grid_dim_x_;          // x unit dimention of 2D coordinate
         float grid_dim_y_;          // y unit dimention of 2D coordinate
         float circle_diameter_;     // outer circle diameter [m]
+	float default_circle_diameter_; // default outer circle diameter [m] to be used when processing non-user-specific markers (when circle_diameter_ changes)
         
         float hom_[9];                  // transformation description for 2D
         S3DTransform D3transform_[4];   // transformation description for 3D

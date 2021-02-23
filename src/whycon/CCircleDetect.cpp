@@ -524,12 +524,17 @@ SMarker CCircleDetect::findSegment(CRawImage* image, SSegment init)
         ellipse_centers = trans_->calcSolutions(outer);
         
         if(identify)
+	{
             ambiguityAndObtainCode(image);
+	}
         else
+	{
             ambiguityPlain();
+	}
 
-        trans_->calcOrientation(tracked_object);
+	trans_->calcOrientation(tracked_object);
         trans_->transformCoordinates(tracked_object);
+
     }
 
     // drawing results 
@@ -723,6 +728,16 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
         segIdx = 1;
 //    printf("solution %d\n\n", segIdx);
 
+	// here we look up the marker in the user definitions and resize accordingly
+	if( outer.ID == 17 )
+	{
+		printf("ID: %d -> resizing before transformations.\n", outer.ID);
+
+		trans_->setCircleDiameter(500);
+		ellipse_centers = trans_->calcSolutions(outer);
+		trans_->resetCircleDiameterToDefault();
+	}
+
     tracked_object.u = ellipse_centers.u[segIdx];
     tracked_object.v = ellipse_centers.v[segIdx];
     tracked_object.x = ellipse_centers.t[segIdx][0];
@@ -738,8 +753,12 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     //char realCode[idBits*4];
     char realCode[idBits + 1];
 
+    // change origin of reference angle
+
     SDecoded segment_decode = decoder_->decode(code[segIdx], realCode, maxIndex, outer.v0, outer.v1);
     outer.ID = segment_decode.id + 1;
+    
+    segment_decode.angle += 0.2;
     tracked_object.angle = segment_decode.angle;
 
     if (debug)
@@ -763,6 +782,47 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
             image->data_[step * pos + 2] = 0;
         }
     }
+
+#if 1
+    // draw a line going from ellipse center to "angle"
+    int line_x;
+    int line_y;
+
+    for(int i = 0; i < 2; i ++)
+    {
+            float reference_angle = segment_decode.angle - 1.5708;
+            float r1 = (tmp[i].m0 * cos(reference_angle) * tmp[i].v0 + tmp[i].m1 * sin(reference_angle) * tmp[i].v1);
+            float r2 = (tmp[i].m0 * cos(reference_angle) * tmp[i].v1 - tmp[i].m1 * sin(reference_angle) * tmp[i].v0);
+            int radius = std::sqrt(r1*r1 + r2*r2) * 5.5;
+            
+	    for(int a = 0; a < radius; a ++)
+            {
+//                  x[i][a] = tmp[i].x + (tmp[i].m0 * cos((float)a/idSamples*2*M_PI) * tmp[i].v0 + tmp[i].m1 * sin((float)a/idSamples*2*M_PI) * tmp[i].v1)*2.0;
+//                  y[i][a] = tmp[i].y + (tmp[i].m0 * cos((float)a/idSamples*2*M_PI) * tmp[i].v1 - tmp[i].m1 * sin((float)a/idSamples*2*M_PI) * tmp[i].v0)*2.0;    
+
+                line_x = ellipse_centers.u[segIdx] + (a * cos(reference_angle));
+                line_y = ellipse_centers.v[segIdx] + (a * sin(reference_angle));
+
+                pos = ((int)line_x + ((int)line_y) * image->width_);
+                if( pos > 0 && pos < image->width_ * image->height_ )
+                {
+                        if( i == 0)
+                        {
+                                image->data_[step * pos + 0] = 0;
+                                image->data_[step * pos + 1] = 255;
+                                image->data_[step * pos + 2] = 0;
+                        }
+                        else if( i == 1 )
+                        {
+                                image->data_[step * pos + 0] = 0;
+                                image->data_[step * pos + 1] = 0;
+                                image->data_[step * pos + 2] = 255;
+                        }
+                }
+            }
+    }
+#endif
+
 }
 
 void CCircleDetect::ambiguityPlain()
