@@ -171,7 +171,7 @@ void CWhyconROSNode::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr 
     whycon_.updateCameraInfo(intrinsic_mat_, distortion_coeffs_);
 }
 
-geometry_msgs::Point get_camera_translation( const geometry_msgs::Pose & marker_pose )
+geometry_msgs::Point CWhyconROSNode::get_camera_translation( const geometry_msgs::Pose & marker_pose )
 {
 	// the pose of the camera within the marker's coordinate frame
 	geometry_msgs::Pose camera_pose;
@@ -180,6 +180,75 @@ geometry_msgs::Point get_camera_translation( const geometry_msgs::Pose & marker_
 	tf2::Quaternion marker_orientation, marker_orientation_inverse;
 	tf2::fromMsg(marker_pose.orientation, marker_orientation);
 	marker_orientation_inverse = marker_orientation.inverse();
+
+	// create a rotational transform with the inverse of the marker's orientation (no translational element)
+	geometry_msgs::TransformStamped rotation_transform;
+	rotation_transform.transform.rotation = tf2::toMsg(marker_orientation_inverse);
+
+	// carry out the rotation
+	tf2::doTransform(marker_pose, camera_pose, rotation_transform);
+
+	// return only the translational elements of the camera's pose, as the orientation will be (w, x, y, z) ≈ (1, 0, 0, 0)
+	return camera_pose.position;
+}
+
+// same as the normal one but using "angle" as the value for the roll, since planes don't innately have it in this setup
+//geometry_msgs::Point CWhyconROSNode::get_camera_translation( const geometry_msgs::Pose & marker_pose, const float & angle )
+geometry_msgs::Point CWhyconROSNode::get_camera_translation( const geometry_msgs::Pose & marker_pose, const float & angle, const whycon::MarkerArray & marker_array )
+{
+	double roll;
+	double pitch;
+	double yaw;
+
+	// the pose of the camera within the marker's coordinate frame
+	geometry_msgs::Pose camera_pose;
+
+	// get the marker's orientation and invert it
+	tf2::Quaternion marker_orientation, marker_orientation_inverse;
+	tf2::fromMsg(marker_pose.orientation, marker_orientation);
+	tf2::Matrix3x3(marker_orientation).getRPY(roll, pitch, yaw);
+
+	// do not use the roll from the plane's orientation but rather the "angle" attributes of its whycode markers.
+	// in this case we just use the average of the angles of the whycode markers.
+	marker_orientation.setRPY(angle, pitch, yaw);
+
+	geometry_msgs::Quaternion marker_orientation_msg = tf2::toMsg(marker_orientation);
+
+	double average_roll = 0;
+	double average_pitch = 0;
+	double average_yaw = 0;
+
+	for(int i = 0; i < marker_array.markers.size(); i ++)
+	{
+		average_roll += marker_array.markers[i].rotation.x;
+		average_pitch += marker_array.markers[i].rotation.y;
+		average_yaw += marker_array.markers[i].rotation.z;
+	}
+
+	average_roll /= marker_array.markers.size();
+	average_pitch /= marker_array.markers.size();
+	average_yaw /= marker_array.markers.size();
+
+#if 0
+	printf("%f\t", angle);
+	printf("%f\t", average_roll);
+	for(int i = 0; i < marker_array.markers.size(); i ++) printf("%f\t", marker_array.markers[i].rotation.x);
+	printf("\n");
+	printf("%f\t", pitch);
+	printf("%f\t", average_pitch);
+	for(int i = 0; i < marker_array.markers.size(); i ++) printf("%f\t", marker_array.markers[i].rotation.y);
+	printf("\n");
+	printf("%f\t", yaw);
+	printf("%f\t", average_yaw);
+	for(int i = 0; i < marker_array.markers.size(); i ++) printf("%f\t", marker_array.markers[i].rotation.z);
+	printf("\n");
+	printf("\n");
+#endif
+
+	// invert the orienation
+	marker_orientation_inverse = marker_orientation.inverse();
+
+//	printf("RPY: (%f, %f, %f)\n", angle, pitch, yaw);
 
 	// create a rotational transform with the inverse of the marker's orientation (no translational element)
 	geometry_msgs::TransformStamped rotation_transform;
@@ -288,7 +357,8 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
         }
     }
 
-    if( marker_array.markers.size() > 3 )
+    // need at least 3 points to get a plane
+    if( marker_array.markers.size() > 2 )
     {
 	    std::vector<Eigen::Vector3d> points;
 
@@ -304,7 +374,7 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
 
 	angle /= marker_array.markers.size();
 
-	printf("\taverage angle: %f\n", angle);
+//	printf("\taverage angle: %f\n", angle);
 
 	auto result = best_plane_from_points(points);
 
@@ -347,9 +417,10 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
 	plane_pose.orientation.y = quaternion_axis[1];
 	plane_pose.orientation.z = quaternion_axis[2];
 
-	geometry_msgs::Point plane_camera_translation = get_camera_translation(plane_pose);
+//	geometry_msgs::Point plane_camera_translation = get_camera_translation(plane_pose, angle);
+	geometry_msgs::Point plane_camera_translation = get_camera_translation(plane_pose, angle, marker_array);
 
-	std::cout << plane_camera_translation << std::endl;
+//	std::cout << plane_camera_translation << std::endl;
     }
 
     // publishing detected markers

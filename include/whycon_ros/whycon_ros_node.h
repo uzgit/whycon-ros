@@ -7,6 +7,9 @@
 #include <image_transport/image_transport.h>
 #include <dynamic_reconfigure/server.h>
 
+#include "whycon/MarkerArray.h"
+#include <geometry_msgs/Pose.h>
+
 #include <tf2_ros/transform_broadcaster.h>
 
 #include "whycon/whyconConfig.h"
@@ -43,6 +46,10 @@ class CWhyconROSNode
         void imageCallback(const sensor_msgs::ImageConstPtr& msg);
 
         void start();
+
+	geometry_msgs::Point get_camera_translation( const geometry_msgs::Pose & marker_pose );
+//	geometry_msgs::Point get_camera_translation( const geometry_msgs::Pose & marker_pose, const float & angle );
+	geometry_msgs::Point get_camera_translation( const geometry_msgs::Pose & marker_pose, const float & angle, const whycon::MarkerArray & marker_array );
 
         CWhyconROSNode();
 
