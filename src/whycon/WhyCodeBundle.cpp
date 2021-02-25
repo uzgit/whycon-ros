@@ -82,64 +82,6 @@ bool WhyCodeBundle::process_bundle(const whycon::MarkerArray & marker_array, geo
 		geometry_msgs::Pose temp_pose;
 		tf2::doTransform(pose, temp_pose, rotation_transform);
 		camera_translation = temp_pose.position;
-		std::cout << camera_translation << std::endl;		
-
-		// for debugging only
-//		tf2::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
-//		printf("(%10.10f, %10.10f, %10.10f)\n", roll, pitch, yaw);
-
-		// no consideration of yaw
-//		Eigen::Vector3d initial_rotation = Eigen::Matrix3d(initial_orientation).eulerAngles(0, 1, 2);
-
-/*
-		double yaw   = angle;
-		double pitch = initial_rotation[1];
-		double roll  = initial_rotation[2];
-
-		orientation.setRPY(roll, pitch, yaw);
-		pose.orientation = tf2::toMsg(orientation);
-
-//		std::cout << pose << std::endl;
-		
-		orientation_inverse = orientation.inverse();
-		geometry_msgs::TransformStamped rotation_transform;
-		rotation_transform.transform.rotation = tf2::toMsg(orientation_inverse);
-		
-		geometry_msgs::Pose temp_pose;
-		tf2::doTransform(pose, temp_pose, rotation_transform);
-		camera_translation = temp_pose.position;
-		std::cout << camera_translation << std::endl;		
-*/		
-/*
-		std::cout << initial_rotation << std::endl;
-
-
-
-		tf2::Quaternion orientation, orientation_inverse;
-		orientation.setRPY(roll, pitch, yaw);
-
-
-		pose.orientation = tf2::toMsg(orientation);
-
-		orientation_inverse = orientation.inverse();
-
-		geometry_msgs::TransformStamped rotation_transform;
-		rotation_transform.transform.rotation = tf2::toMsg(orientation_inverse);
-
-		geometry_msgs::Pose temp_pose;
-		tf2::doTransform(pose, temp_pose, rotation_transform);
-
-		camera_translation = temp_pose.position;
-*/
-//		printf("(%10.10f, %10.10f, %10.10f)\n", rotation[0], rotation[1], rotation[2]);
-/*
-		tf2::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
-		printf("RPY: (%10.10f, %10.10f, %10.10f)\n", roll, pitch, yaw);
-*/
-//		printf("%f", w);
-
-
-//		std::cout << camera_translation << std::endl;
 
 		pose_out = pose;
 
