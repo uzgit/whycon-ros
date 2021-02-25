@@ -91,6 +91,8 @@ class CWhyconROSNode
         bool identify_;
         bool publish_tf_;
         tf2_ros::TransformBroadcaster tf_broad_;
+
+	whycon::WhyCodeBundle * bundle_detector;
 };
 
 }

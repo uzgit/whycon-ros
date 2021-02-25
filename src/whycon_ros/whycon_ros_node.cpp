@@ -17,28 +17,6 @@
 namespace whycon_ros
 {
 
-template<class Vector3>
-std::pair<Vector3, Vector3> best_plane_from_points(const std::vector<Vector3> & c)
-{
-        // copy coordinates to  matrix in Eigen format
-        size_t num_atoms = c.size();
-        Eigen::Matrix< Vector3::Scalar, Eigen::Dynamic, Eigen::Dynamic > coord(3, num_atoms);
-        for (size_t i = 0; i < num_atoms; ++i) coord.col(i) = c[i];
-
-        // calculate centroid
-        Vector3 centroid(coord.row(0).mean(), coord.row(1).mean(), coord.row(2).mean());
-
-        // subtract centroid
-        coord.row(0).array() -= centroid(0); coord.row(1).array() -= centroid(1); coord.row(2).array() -= centroid(2);
-
-        // we only need the left-singular matrix here
-        //  http://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
-        auto svd = coord.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
-        //Vector3 plane_normal = svd.matrixU().rightCols<1>();
-        auto plane_normal = svd.matrixU().rightCols(1);
-        return std::make_pair(centroid, plane_normal);
-}
-
 bool CWhyconROSNode::setDrawingCallback(whycon::SetDrawing::Request &req, whycon::SetDrawing::Response &res)
 {
     whycon_.setDrawing(req.draw_coords, req.draw_segments);
@@ -186,75 +164,6 @@ geometry_msgs::Point CWhyconROSNode::get_camera_translation( const geometry_msgs
 	return camera_pose.position;
 }
 
-// same as the normal one but using "angle" as the value for the roll, since planes don't innately have it in this setup
-//geometry_msgs::Point CWhyconROSNode::get_camera_translation( const geometry_msgs::Pose & marker_pose, const float & angle )
-geometry_msgs::Point CWhyconROSNode::get_camera_translation( const geometry_msgs::Pose & marker_pose, const float & angle, const whycon::MarkerArray & marker_array )
-{
-	double roll;
-	double pitch;
-	double yaw;
-
-	// the pose of the camera within the marker's coordinate frame
-	geometry_msgs::Pose camera_pose;
-
-	// get the marker's orientation and invert it
-	tf2::Quaternion marker_orientation, marker_orientation_inverse;
-	tf2::fromMsg(marker_pose.orientation, marker_orientation);
-	tf2::Matrix3x3(marker_orientation).getRPY(roll, pitch, yaw);
-
-	// do not use the roll from the plane's orientation but rather the "angle" attributes of its whycode markers.
-	// in this case we just use the average of the angles of the whycode markers.
-	marker_orientation.setRPY(angle, pitch, yaw);
-
-	geometry_msgs::Quaternion marker_orientation_msg = tf2::toMsg(marker_orientation);
-
-#if 1
-	double average_roll = 0;
-	double average_pitch = 0;
-	double average_yaw = 0;
-
-	for(int i = 0; i < marker_array.markers.size(); i ++)
-	{
-		average_roll += marker_array.markers[i].rotation.x;
-		average_pitch += marker_array.markers[i].rotation.y;
-		average_yaw += marker_array.markers[i].rotation.z;
-	}
-
-	average_roll /= marker_array.markers.size();
-	average_pitch /= marker_array.markers.size();
-	average_yaw /= marker_array.markers.size();
-
-	printf("%f\t", angle);
-	printf("%f\t", average_roll);
-	for(int i = 0; i < marker_array.markers.size(); i ++) printf("%f\t", marker_array.markers[i].rotation.x);
-	printf("\n");
-	printf("%f\t", pitch);
-	printf("%f\t", average_pitch);
-	for(int i = 0; i < marker_array.markers.size(); i ++) printf("%f\t", marker_array.markers[i].rotation.y);
-	printf("\n");
-	printf("%f\t", yaw);
-	printf("%f\t", average_yaw);
-	for(int i = 0; i < marker_array.markers.size(); i ++) printf("%f\t", marker_array.markers[i].rotation.z);
-	printf("\n");
-	printf("\n");
-#endif
-
-	// invert the orienation
-	marker_orientation_inverse = marker_orientation.inverse();
-
-//	printf("RPY: (%f, %f, %f)\n", angle, pitch, yaw);
-
-	// create a rotational transform with the inverse of the marker's orientation (no translational element)
-	geometry_msgs::TransformStamped rotation_transform;
-	rotation_transform.transform.rotation = tf2::toMsg(marker_orientation_inverse);
-
-	// carry out the rotation
-	tf2::doTransform(marker_pose, camera_pose, rotation_transform);
-
-	// return only the translational elements of the camera's pose, as the orientation will be (w, x, y, z) ≈ (1, 0, 0, 0)
-	return camera_pose.position;
-}
-
 void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
 {
     // convert sensor_msgs::Image msg to whycon CRawImage
@@ -354,10 +263,13 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
     // need at least 3 points to get a plane
     if( marker_array.markers.size() > 2 )
     {
-	whycon::WhyCodeBundle bundle_detector = whycon::WhyCodeBundle(0);
-
-	geometry_msgs::Pose bundle_pose;
-	bool result = bundle_detector.process_bundle(marker_array, bundle_pose);
+	whycon::Bundle temp;
+//	whycon::WhyCodeBundle bundle_detector = whycon::WhyCodeBundle(0, "landing_pad");
+	bool result = bundle_detector->process_bundle(marker_array, temp);
+	if( result )
+	{
+		std::cout << temp << std::endl;
+	}
     }
 
     // publishing detected markers
@@ -417,7 +329,9 @@ CWhyconROSNode::CWhyconROSNode()
     distortion_coeffs_.resize(5);
     image_ = new whycon::CRawImage(default_width, default_height, 3);
     whycon_.init(circle_diameter_, use_gui_, id_bits, id_samples, hamming_dist, num_markers, default_width, default_height);
-    
+   
+    bundle_detector = new whycon::WhyCodeBundle(0, "landing_pad");
+
     // subscribe to camera topics
     image_transport::ImageTransport it(nh);
     cam_info_sub_ = nh.subscribe("/camera/camera_info", 1, &CWhyconROSNode::cameraInfoCallback, this);
@@ -443,6 +357,8 @@ CWhyconROSNode::CWhyconROSNode()
 CWhyconROSNode::~CWhyconROSNode()
 {
     delete image_;
+
+    delete bundle_detector;
 }
 
 }

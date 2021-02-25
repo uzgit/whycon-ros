@@ -5,9 +5,10 @@
 namespace whycon
 {
 
-WhyCodeBundle::WhyCodeBundle(int bundle_id)
+WhyCodeBundle::WhyCodeBundle(int _id, string _name)
 {
-	id = bundle_id;
+	id = _id;
+	name = _name;
 }
 
 WhyCodeBundle::~WhyCodeBundle()
@@ -15,7 +16,7 @@ WhyCodeBundle::~WhyCodeBundle()
 	
 }
 
-bool WhyCodeBundle::process_bundle(const whycon::MarkerArray & marker_array, geometry_msgs::Pose & pose_out)
+bool WhyCodeBundle::process_bundle(const whycon::MarkerArray & marker_array, whycon::Bundle & bundle_out)
 {
 	bool result = false;
 
@@ -75,6 +76,40 @@ bool WhyCodeBundle::process_bundle(const whycon::MarkerArray & marker_array, geo
 		tf2::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
 		orientation.setRPY(angle, pitch, yaw);
 
+		rotation.x = roll;
+		rotation.y = pitch;
+		rotation.z = yaw;
+#if 0
+		double average_roll = 0;
+		double average_pitch = 0;
+		double average_yaw = 0;
+
+		for(int i = 0; i < marker_array.markers.size(); i ++)
+		{
+			average_roll += marker_array.markers[i].rotation.x;
+			average_pitch += marker_array.markers[i].rotation.y;
+			average_yaw += marker_array.markers[i].rotation.z;
+		}
+
+		average_roll /= marker_array.markers.size();
+		average_pitch /= marker_array.markers.size();
+		average_yaw /= marker_array.markers.size();
+
+		printf("%f\t", angle);
+		printf("%f\t", average_roll);
+		for(int i = 0; i < marker_array.markers.size(); i ++) printf("%f\t", marker_array.markers[i].rotation.x);
+		printf("\n");
+		printf("%f\t", pitch);
+		printf("%f\t", average_pitch);
+		for(int i = 0; i < marker_array.markers.size(); i ++) printf("%f\t", marker_array.markers[i].rotation.y);
+		printf("\n");
+		printf("%f\t", yaw);
+		printf("%f\t", average_yaw);
+		for(int i = 0; i < marker_array.markers.size(); i ++) printf("%f\t", marker_array.markers[i].rotation.z);
+		printf("\n");
+		printf("\n");
+#endif
+
 		orientation_inverse = orientation.inverse();
 		geometry_msgs::TransformStamped rotation_transform;
 		rotation_transform.transform.rotation = tf2::toMsg(orientation_inverse);
@@ -83,33 +118,30 @@ bool WhyCodeBundle::process_bundle(const whycon::MarkerArray & marker_array, geo
 		tf2::doTransform(pose, temp_pose, rotation_transform);
 		camera_translation = temp_pose.position;
 
-		pose_out = pose;
+		populate_message();
+		bundle_out = message;
 
 		result = true;
 	}
 	return result;
 }
 
-std::pair<Eigen::Vector3d, Eigen::Vector3d> WhyCodeBundle::best_plane_from_points()
+std::pair<Vector3d, Vector3d> WhyCodeBundle::best_plane_from_points()
 {
         // copy coordinates to  matrix in Eigen format
-//        size_t num_atoms = c.size();
         size_t num_atoms = points.size();
-        Eigen::Matrix< Eigen::Vector3d::Scalar, Eigen::Dynamic, Eigen::Dynamic > coord(3, num_atoms);
-//        for (size_t i = 0; i < num_atoms; ++i) coord.col(i) = c[i];
+        Matrix< Vector3d::Scalar, Dynamic, Dynamic > coord(3, num_atoms);
         for (size_t i = 0; i < num_atoms; ++i) coord.col(i) = points[i];
 
         // calculate centroid
-        Eigen::Vector3d centroid(coord.row(0).mean(), coord.row(1).mean(), coord.row(2).mean());
-        //Vector3 centroid(coord.row(0).mean(), coord.row(1).mean(), coord.row(2).mean());
+        Vector3d centroid(coord.row(0).mean(), coord.row(1).mean(), coord.row(2).mean());
 
         // subtract centroid
         coord.row(0).array() -= centroid(0); coord.row(1).array() -= centroid(1); coord.row(2).array() -= centroid(2);
 
         // we only need the left-singular matrix here
         //  http://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
-        auto svd = coord.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
-        //Vector3 plane_normal = svd.matrixU().rightCols<1>();
+        auto svd = coord.jacobiSvd(ComputeThinU | ComputeThinV);
         auto plane_normal = svd.matrixU().rightCols(1);
         return std::make_pair(centroid, plane_normal);
 }
@@ -117,6 +149,40 @@ std::pair<Eigen::Vector3d, Eigen::Vector3d> WhyCodeBundle::best_plane_from_point
 int WhyCodeBundle::get_id()
 {
 	return id;
+}
+
+void WhyCodeBundle::populate_message()
+{
+	if( queue_index == NUM_FILTER_VALUES )
+	{
+		queue_index = 0;
+	}
+	
+	past_camera_translation[queue_index] = camera_translation;
+	geometry_msgs::Point temp;
+	temp.x = 0;
+	temp.y = 0;
+	temp.z = 0;
+	for(int i = 0; i < NUM_FILTER_VALUES; i ++)
+	{
+		temp.x += past_camera_translation[i].x;
+		temp.y += past_camera_translation[i].y;
+		temp.z += past_camera_translation[i].z;
+	}
+	temp.x /= NUM_FILTER_VALUES;
+	temp.y /= NUM_FILTER_VALUES;
+	temp.z /= NUM_FILTER_VALUES;
+
+	queue_index ++;
+
+	message.ID = id;
+	message.name = "";
+	message.position = pose;
+	message.rotation_rpy = rotation;
+//	message.camera_translation_uwn = camera_translation;
+	message.camera_translation_uwn = temp;
+	message.u = u;
+	message.v = v;
 }
 
 } // end namespace whycon
