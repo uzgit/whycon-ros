@@ -1,12 +1,15 @@
 #ifndef WHYCON_ROS_CWHYCONROSNODE_H
 #define WHYCON_ROS_CWHYCONROSNODE_H
 
+#include <yaml.h>
+
 #include <vector>
 
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
 #include <dynamic_reconfigure/server.h>
 
+#include "whycon/Bundle.h"
 #include "whycon/MarkerArray.h"
 #include <geometry_msgs/Pose.h>
 

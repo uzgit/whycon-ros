@@ -13,6 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(OpenCV REQUIRED)
 
+find_package (Eigen3 REQUIRED)
+
 generate_dynamic_reconfigure_options(cfg/whycon.cfg)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -O2 -march=native -ggdb -fpermissive")
@@ -26,6 +28,8 @@ add_message_files(DIRECTORY msg
     FILES
     Marker.msg
     MarkerArray.msg
+    Bundle.msg
+    BundleArray.msg
     )
 
 # Generate services in the 'srv' folder
@@ -58,6 +62,7 @@ catkin_package(
     #  LIBRARIES charging
     #  CATKIN_DEPENDS image_transport roscpp rospy std_msgs
     CATKIN_DEPENDS roscpp image_transport message_runtime geometry_msgs visualization_msgs dynamic_reconfigure tf
+    DEPENDS Eigen3
     #  DEPENDS system_lib
     )
 
@@ -68,6 +73,8 @@ catkin_package(
 include_directories(
     include
     ${catkin_INCLUDE_DIRS}
+    $SYSTEM
+    ${EIGEN3_INCLUDE_DIR}
     )
 
 add_executable(whycon
@@ -78,10 +85,11 @@ add_executable(whycon
     src/whycon/CTimer.cpp
     src/whycon/CTransformation.cpp
     src/whycon/CNecklace.cpp
+    src/whycon/WhyCodeBundle.cpp
     )
 
 add_dependencies(whycon ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
-target_link_libraries(whycon ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+target_link_libraries(whycon ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} ${EIGEN3_LIBRARIES})
 
 #############
 ## Install ##
@@ -101,6 +109,10 @@ install(TARGETS
 
 install(DIRECTORY launch/
     DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
+    )
+
+install(DIRECTORY bundles/
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/bundles
     )
 
 # install(DIRECTORY etc/

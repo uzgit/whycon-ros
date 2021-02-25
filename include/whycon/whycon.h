@@ -8,5 +8,6 @@
 #include "whycon/CNecklace.h"
 #include "whycon/CRawImage.h"
 #include "whycon/CTimer.h"
+#include "whycon/WhyCodeBundle.h"
 
 #endif
