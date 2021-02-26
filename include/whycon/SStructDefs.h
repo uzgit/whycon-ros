@@ -45,6 +45,14 @@ typedef enum
 
 typedef struct
 {
+    float u[2];     // retransformed x coords
+    float v[2];     // retransformed y coords
+    float n[2][3];  // both solutions of marker's surface normal
+    float t[2][3];  // both solutions of position vector
+} SEllipseCenters;
+
+typedef struct
+{
     float u, v;                 // real center in the image coords
     float x, y, z, d;           // position and distance in the camera coords
     float roll, pitch, yaw;     // fixed axis angles
@@ -52,18 +60,13 @@ typedef struct
     float n0, n1, n2;           // marker surface normal pointing from the camera
     float qx, qy, qz, qw;       // quaternion
     int segIdx;			// index of orientation solution
+    SEllipseCenters centers;
     // ??? not used float roundness;            // segment roundness as calculated by 5 of [1]
     // ??? not used float bwratio;              // black/white area ratio
     // ??? not used int ID;                     // ID of marker
 } STrackedObject;
 
-typedef struct
-{
-    float u[2];     // retransformed x coords
-    float v[2];     // retransformed y coords
-    float n[2][3];  // both solutions of marker's surface normal
-    float t[2][3];  // both solutions of position vector
-} SEllipseCenters;
+
 
 // rotation/translation model of the 3D transformation                                                                                                                  
 typedef struct
@@ -79,7 +82,7 @@ typedef struct
     STrackedObject obj;
 } SMarker;
 
-typdef struct
+typedef struct
 {
     float n[3];
 } SBundleOrientationTracker;

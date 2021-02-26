@@ -33,6 +33,7 @@ public:
 	WhyCodeBundle(int _id, string _name);
 	~WhyCodeBundle();
 
+	bool process_bundle(std::vector<whycon::SMarker> markers, whycon::Bundle & bundle_out);
 	bool process_bundle(const whycon::MarkerArray & markers, whycon::Bundle & bundle_out);
 	int get_id();
 
@@ -57,6 +58,10 @@ private:
 	// to do
 	int queue_index = 0;
 	geometry_msgs::Point past_camera_translation[NUM_FILTER_VALUES];
+
+	geometry_msgs::Point get_camera_translation( const geometry_msgs::Pose & marker_pose );
+
+	CTransformation * trans_;
 };
 
 } // end namespace whycon

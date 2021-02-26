@@ -726,6 +726,25 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
         segIdx = 0;
     else
         segIdx = 1;
+
+//************************************************************************
+/*
+    float dot_product[2];
+    dot_product[0] = previous_bundle_orientation.n[0]*ellipse_centers.n[0][0] + previous_bundle_orientation.n[1]*ellipse_centers.n[0][1] + previous_bundle_orientation.n[2]*ellipse_centers.n[0][2];
+    dot_product[1] = previous_bundle_orientation.n[0]*ellipse_centers.n[1][0] + previous_bundle_orientation.n[1]*ellipse_centers.n[1][1] + previous_bundle_orientation.n[2]*ellipse_centers.n[1][2];
+
+    if( abs(dot_product[0]) < abs(dot_product[1]) )
+    {
+	    segIdx = 0;
+    }
+    else
+    {
+	    segIdx = 1;
+    }
+*/
+//************************************************************************
+
+
 //    printf("solution %d\n\n", segIdx);
 
 /*
@@ -749,6 +768,8 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
     tracked_object.n1 = ellipse_centers.n[segIdx][1];
     tracked_object.n2 = ellipse_centers.n[segIdx][2];
     tracked_object.segIdx = segIdx;
+
+    tracked_object.centers = ellipse_centers;
 
     maxIndex = maxIdx[segIdx];
 

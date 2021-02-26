@@ -112,6 +112,8 @@ class CCircleDetect {
 
         SEllipseCenters ellipse_centers;
         STrackedObject tracked_object;
+
+	SBundleOrientationTracker previous_bundle_orientation;
 };
 
 }

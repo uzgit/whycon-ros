@@ -171,6 +171,20 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
 
     whycon_.processImage(image_, whycon_detections_);
 
+    // detect bundles before populating marker message in order to possibly correct orientation ambiguities
+    whycon::BundleArray bundle_array;
+    // need at least 3 points to get a plane
+    if( whycon_detections_.size() > 2 )
+    {
+	whycon::Bundle temp_bundle;
+//	whycon::WhyCodeBundle bundle_detector = whycon::WhyCodeBundle(0, "landing_pad");
+	bool result = bundle_detector->process_bundle(whycon_detections_, temp_bundle);
+	if( result )
+	{
+		bundle_array.bundles.push_back(temp_bundle);
+	}
+    }
+
     // generate information about markers into msgs
     whycon::MarkerArray marker_array;
     marker_array.header.stamp = ros::Time::now();
@@ -182,7 +196,7 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
     // Generate RVIZ visualization marker
     visualization_msgs::MarkerArray visual_array;
 
-    whycon::BundleArray bundle_array;
+
 
     for(const whycon::SMarker &detection : whycon_detections_)
     {
@@ -262,17 +276,6 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
         }
     }
 
-    // need at least 3 points to get a plane
-    if( marker_array.markers.size() > 2 )
-    {
-	whycon::Bundle temp_bundle;
-//	whycon::WhyCodeBundle bundle_detector = whycon::WhyCodeBundle(0, "landing_pad");
-	bool result = bundle_detector->process_bundle(marker_array, temp_bundle);
-	if( result )
-	{
-		bundle_array.bundles.push_back(temp_bundle);
-	}
-    }
 
     // publishing detected markers
     if(marker_array.markers.size() > 0)
