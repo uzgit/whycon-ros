@@ -79,6 +79,11 @@ typedef struct
     STrackedObject obj;
 } SMarker;
 
+typdef struct
+{
+    float n[3];
+} SBundleOrientationTracker;
+
 }
 
 #endif

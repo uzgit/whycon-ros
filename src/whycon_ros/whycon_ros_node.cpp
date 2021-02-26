@@ -182,6 +182,8 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
     // Generate RVIZ visualization marker
     visualization_msgs::MarkerArray visual_array;
 
+    whycon::BundleArray bundle_array;
+
     for(const whycon::SMarker &detection : whycon_detections_)
     {
         whycon::Marker marker;
@@ -263,12 +265,12 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
     // need at least 3 points to get a plane
     if( marker_array.markers.size() > 2 )
     {
-	whycon::Bundle temp;
+	whycon::Bundle temp_bundle;
 //	whycon::WhyCodeBundle bundle_detector = whycon::WhyCodeBundle(0, "landing_pad");
-	bool result = bundle_detector->process_bundle(marker_array, temp);
+	bool result = bundle_detector->process_bundle(marker_array, temp_bundle);
 	if( result )
 	{
-		std::cout << temp << std::endl;
+		bundle_array.bundles.push_back(temp_bundle);
 	}
     }
 
@@ -282,6 +284,11 @@ void CWhyconROSNode::imageCallback(const sensor_msgs::Image::ConstPtr &msg)
 
         for(int i = 0; i < transform_array.size(); i++)
             tf_broad_.sendTransform(transform_array[i]);
+    }
+
+    if(bundle_array.bundles.size() > 0)
+    {
+	    bundle_pub_.publish(bundle_array);
     }
 
     if(use_gui_)
@@ -341,6 +348,7 @@ CWhyconROSNode::CWhyconROSNode()
     img_pub_ = it.advertise("processed_image", 1);
     markers_pub_ = nh.advertise<whycon::MarkerArray>("markers", 1);
     visual_pub_ = nh.advertise<visualization_msgs::MarkerArray>("visualisation", 1);
+    bundle_pub_ = nh.advertise<whycon::BundleArray>("bundles", 1);
 
     // advertise services
     drawing_srv_ = nh.advertiseService("set_drawing", &CWhyconROSNode::setDrawingCallback, this);

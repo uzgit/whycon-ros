@@ -36,6 +36,8 @@ public:
 	bool process_bundle(const whycon::MarkerArray & markers, whycon::Bundle & bundle_out);
 	int get_id();
 
+	SBundleOrientationTracker orientation_tracker;
+
 private:
 	int id;
 	string name;

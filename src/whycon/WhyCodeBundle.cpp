@@ -53,6 +53,11 @@ bool WhyCodeBundle::process_bundle(const whycon::MarkerArray & marker_array, why
 			normal[2] *= -1;
 		}
 
+		for(int i = 0; i < 3; i ++)
+		{
+			orientation_tracker.n[i] = normal[i];
+		}
+
 		// for now just consider the position of the bundle to be its centroid
 		pose.position.x = centroid[0];
 		pose.position.y = centroid[1];
@@ -74,11 +79,17 @@ bool WhyCodeBundle::process_bundle(const whycon::MarkerArray & marker_array, why
 		tf2::Quaternion orientation, orientation_inverse;
 		tf2::fromMsg(pose.orientation, orientation);
 		tf2::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
+
+		// to be in the whycon convention
+		pitch = -pitch;
+
 		orientation.setRPY(angle, pitch, yaw);
 
 		rotation.x = roll;
 		rotation.y = pitch;
 		rotation.z = yaw;
+
+		pose.orientation = tf2::toMsg(orientation);
 #if 0
 		double average_roll = 0;
 		double average_pitch = 0;
@@ -153,6 +164,7 @@ int WhyCodeBundle::get_id()
 
 void WhyCodeBundle::populate_message()
 {
+#if 0
 	if( queue_index == NUM_FILTER_VALUES )
 	{
 		queue_index = 0;
@@ -172,15 +184,19 @@ void WhyCodeBundle::populate_message()
 	temp.x /= NUM_FILTER_VALUES;
 	temp.y /= NUM_FILTER_VALUES;
 	temp.z /= NUM_FILTER_VALUES;
+	
+	message.camera_translation_uwn = temp;
 
 	queue_index ++;
+#else
+	message.camera_translation_uwn = camera_translation;
+
+#endif
 
 	message.ID = id;
 	message.name = "";
 	message.position = pose;
 	message.rotation_rpy = rotation;
-//	message.camera_translation_uwn = camera_translation;
-	message.camera_translation_uwn = temp;
 	message.u = u;
 	message.v = v;
 }

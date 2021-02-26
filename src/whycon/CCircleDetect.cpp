@@ -728,6 +728,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
         segIdx = 1;
 //    printf("solution %d\n\n", segIdx);
 
+/*
 	// here we look up the marker in the user definitions and resize accordingly
 	if( outer.ID == 17 )
 	{
@@ -737,6 +738,7 @@ void CCircleDetect::ambiguityAndObtainCode(CRawImage *image)
 		ellipse_centers = trans_->calcSolutions(outer);
 		trans_->resetCircleDiameterToDefault();
 	}
+*/
 
     tracked_object.u = ellipse_centers.u[segIdx];
     tracked_object.v = ellipse_centers.v[segIdx];

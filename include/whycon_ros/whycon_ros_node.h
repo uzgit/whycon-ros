@@ -66,6 +66,7 @@ class CWhyconROSNode
         image_transport::Publisher img_pub_;    // image publisher for GUI
         ros::Publisher markers_pub_;            // publisher of MarkerArray
         ros::Publisher visual_pub_;             // publisher of MarkerArray for RVIZ
+	ros::Publisher bundle_pub_;		// publisher for whycode bundles
 
         bool draw_coords_;
         ros::ServiceServer drawing_srv_;
